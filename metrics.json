@@ -1,0 +1,61 @@
+{
+  "n_samples": 440,
+  "n_cats": 21,
+  "grouped_5fold_cv_accuracy": 0.5935138974328309,
+  "leave_one_cat_out_accuracy": 0.5659090909090909,
+  "per_class": {
+    "brushing": {
+      "precision": 0.4260869565217391,
+      "recall": 0.3858267716535433,
+      "f1-score": 0.4049586776859504,
+      "support": 127.0
+    },
+    "waiting_for_food": {
+      "precision": 0.2835820895522388,
+      "recall": 0.20652173913043478,
+      "f1-score": 0.2389937106918239,
+      "support": 92.0
+    },
+    "isolation": {
+      "precision": 0.7015503875968992,
+      "recall": 0.8190045248868778,
+      "f1-score": 0.755741127348643,
+      "support": 221.0
+    },
+    "accuracy": 0.5659090909090909,
+    "macro avg": {
+      "precision": 0.47040647789029233,
+      "recall": 0.4704510118902853,
+      "f1-score": 0.46656450524213905,
+      "support": 440.0
+    },
+    "weighted avg": {
+      "precision": 0.5346482531272309,
+      "recall": 0.5659090909090909,
+      "f1-score": 0.5464453695313946,
+      "support": 440.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      49,
+      30,
+      48
+    ],
+    [
+      44,
+      19,
+      29
+    ],
+    [
+      22,
+      18,
+      181
+    ]
+  ],
+  "labels": [
+    "brushing",
+    "waiting_for_food",
+    "isolation"
+  ]
+}
