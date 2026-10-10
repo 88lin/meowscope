@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵语通 · MeowScope — 在浏览器里听懂猫在说什么</title>
+<title>🐱 喵语通 · MeowScope — 在浏览器里听懂猫在说什么</title>
 <meta name="description" content="纯浏览器端的猫叫声情境分类器：录音或上传，本地 AI 推理，无任何数据上传。">
 <style>
   :root{
@@ -25,8 +25,8 @@
   a:hover{text-decoration:underline}
 
   /* ---------- header ---------- */
-  header{border-bottom:1px solid var(--line);background:var(--bg)}
-  .topbar{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+  header{border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:50;backdrop-filter:blur(8px);background:rgba(250,247,242,.88)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
   .logo{display:flex;align-items:baseline;gap:10px}
   .logo b{font-size:1.25rem;letter-spacing:.12em}
   .logo span{font-size:.8rem;color:var(--muted);letter-spacing:.05em}
@@ -42,7 +42,7 @@
   /* ---------- meter ---------- */
   .meter-card{
     background:var(--card);border:1px solid var(--line);border-radius:14px;
-    padding:26px 28px;margin:34px 0 0;box-shadow:0 1px 3px rgba(60,50,40,.05);
+    padding:26px 28px;margin:34px 0 0;box-shadow:0 1px 3px rgba(60,50,40,.05), 0 8px 28px rgba(60,50,40,.06);
   }
   .meter-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
   .meter-head h2{font-size:1.05rem;letter-spacing:.05em}
@@ -52,11 +52,13 @@
   button{
     font-family:inherit;font-size:.92rem;padding:10px 22px;border-radius:8px;
     border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer;
-    letter-spacing:.08em;transition:transform .08s ease, opacity .15s;
+    letter-spacing:.08em;transition:transform .08s ease, opacity .15s, background .15s, border-color .15s;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;min-height:44px;
   }
+  button:hover:not(:disabled){background:#443c32;border-color:#443c32}
   button:active{transform:translateY(1px)}
   button.ghost{background:transparent;color:var(--ink)}
-  button.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  button.ghost:hover:not(:disabled){background:transparent;border-color:var(--accent);color:var(--accent)}
   button:disabled{opacity:.4;cursor:not-allowed}
   .rec-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:8px;animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.15}}
@@ -87,7 +89,8 @@
   p.body{color:#4c463d;max-width:700px}
 
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:24px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;transition:box-shadow .2s ease, transform .2s ease}
+  .card:hover{box-shadow:0 6px 20px rgba(60,50,40,.08);transform:translateY(-2px)}
   .card h3{font-size:.95rem;margin-bottom:8px}
   .card h3 .tag{font-size:.7rem;color:var(--muted);letter-spacing:.15em;margin-right:6px}
   .card p{font-size:.86rem;color:#6b6357}
@@ -105,8 +108,25 @@
 
   @media (max-width:600px){
     .hero{padding:44px 0 36px}
-    .meter-card{padding:20px}
-    .bar-row{grid-template-columns:90px 1fr 44px}
+    .meter-card{padding:18px 16px}
+    .bar-row{grid-template-columns:86px 1fr 44px;font-size:.8rem}
+    .controls{gap:8px}
+    .controls button{flex:1 1 40%;padding:10px 12px;font-size:.86rem}
+    section{padding:44px 0}
+    .verdict{flex-direction:row;gap:12px;padding:14px 16px}
+    .verdict .emoji{font-size:1.6rem}
+    canvas#wave{height:64px}
+    table.metrics{font-size:.8rem}
+    table.metrics th,table.metrics td{padding:7px 8px}
+    footer .row{flex-direction:column}
+  }
+  @media (max-width:360px){
+    .logo b{font-size:1.05rem}
+    h1{font-size:1.6rem}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .card,.bar-fill,button{transition:none!important;animation:none!important}
+    .rec-dot{animation:none}
   }
 </style>
 </head>
@@ -180,17 +200,30 @@
     <h2>诚实的数据 <small>REAL NUMBERS, NO HYPE</small></h2>
     <p class="body">很多宠物翻译产品宣传 90%+ 准确率，但那是「同一只猫的录音再喂回去」的成绩。我们按<strong>猫为单位</strong>划分训练/测试（模型从没听过测试集里那只猫的声音），这才是你家的猫第一次叫时的真实水平：</p>
     <table class="metrics" id="metrics-table"></table>
-    <p class="note">随机猜 = 33%。按猫分组 5 折交叉验证与「留一只猫出来」验证给出接近的数字，说明没有数据泄漏。识别错误时会自信地错——所以请把输出当作线索，不是诊断。</p>
+    <p class="note">随机猜 = 33%。作为参照：Cornell 大学 Nicastro &amp; Owren（2003）与帕多瓦大学 Prato-Previde 等（2020）发现，<strong>人类</strong>分辨陌生猫的发声情境只有 26–41% 的正确率——本模型的分组交叉验证成绩已高于陌生人类，但低于「养猫人听自家猫」。识别错误时会自信地错，请把输出当线索，不是诊断。</p>
   </section>
 
   <section id="tech">
     <h2>原理 <small>HOW IT WORKS</small></h2>
     <p class="body">整条链路是教科书式的音频分类，没有黑魔法：</p>
     <div class="cards">
-      <div class="card"><h3><span class="tag">01</span>特征</h3><p>20 维 MFCC + 一阶差分 + 谱心质 / 谱滚降 / 过零率 / RMS 统计，共 67 维。与 Python librosa 逐位对拍验证（误差 &lt; 1e-6）。</p></div>
-      <div class="card"><h3><span class="tag">02</span>模型</h3><p>随机森林（150 棵、深度 6），在小样本（440 条）下比深度网络更稳。导出为纯 JSON 决策树在浏览器执行。</p></div>
+      <div class="card"><h3><span class="tag">01</span>特征</h3><p>20 维 MFCC + 一阶差分 + 谱心质/谱滚降/过零率/RMS + YIN 音高统计（中位数、起伏、音高走向），共 70 维。与 Python librosa 逐位对拍验证（误差 &lt; 1e-6）。</p></div>
+      <div class="card"><h3><span class="tag">02</span>模型</h3><p>随机森林（150 棵、深度 7），在小样本（440 条）下比深度网络更稳。导出为纯 JSON 决策树在浏览器执行，gzip 后仅 ~50KB。</p></div>
       <div class="card"><h3><span class="tag">03</span>隐私</h3><p>音频解码、重采样、特征、推理全部在本页面完成。没有服务器、没有 cookie、没有统计脚本。</p></div>
     </div>
+    <p class="body" style="margin-top:18px">音高特征不是随便加的：Schötz 等（2023）发现<strong>音高上升的喵多出现在积极情境，下降的多为应激</strong>，加上 YIN 中位数/起伏后，按猫划分成绩从 59.4% 提升到 60.9%。</p>
+  </section>
+
+  <section id="science">
+    <h2>科学背景 <small>WHAT SCIENCE SAYS</small></h2>
+    <p class="body">喵叫这件事本身，比想象中有趣得多：</p>
+    <div class="cards">
+      <div class="card"><h3><span class="tag">2003</span>喵是为人定制的</h3><p>Cornell 的 Nicastro &amp; Owren 让 26 位人类听陌生猫叫做情境分类，最好的听者也只有 41% 正确。喵不是精确信号，而是「引起注意的、略带负面情绪的声音」——它的功能是 provoke（激起反应），不是 specify（指定含义）。</p></div>
+      <div class="card"><h3><span class="tag">2004</span>驯化塑造了喵</h3><p>Nicastro 对比家猫与非洲野猫发现：家猫的喵更短、基频更高，且所有人类听者（无论爱不爱猫）都认为更好听——喵的「可爱」是被人类听觉偏好筛选出来的。</p></div>
+      <div class="card"><h3><span class="tag">2020</span>养猫的人更准</h3><p>Prato-Previde 等发现人类整体正确率不高于随机，但<strong>猫主人显著高于非主人</strong>——尤其判断「被隔离」和「被刷毛」。等饭喵最易识别（40.4%），隔离喵最难（26.7%）。</p></div>
+      <div class="card"><h3><span class="tag">2025</span>家猫喵更「个性化」</h3><p>Scientific Reports 的跨物种比较发现：家猫的喵声学变异度显著大于五种野猫——喵在人与人共处的环境里持续演化，每只猫都在发展自己的「口音」。</p></div>
+    </div>
+    <p class="note" style="margin-top:14px">顺带一提：成年猫之间几乎不喵——喵主要是说给人类听的。所以严格来说，这个页面翻译的不是「猫语」，是猫对你的「专属人语」。</p>
   </section>
 
   <section id="limits">
@@ -217,13 +250,13 @@
 
 <footer>
   <div class="wrap row">
-    <span>喵语通 MeowScope · 数据集 CatMeows (Schork & Petry, Zenodo 4008297) · 仅供研究与娱乐</span>
-    <span>MIT License</span>
+    <span>喵语通 MeowScope · 数据集 CatMeows（Zenodo 4008297，CC-BY-NC）· 文献：Nicastro & Owren 2003/2004, Prato-Previde 2020, Schötz 2023, Sci. Rep. 2025 · 仅供研究与娱乐</span>
+    <span>MIT License · <a href="https://github.com/88lin/meowscope">GitHub</a></span>
   </div>
 </footer>
 
 <script type="module">
-import { extractFeatures } from './features.js';
+import { extractFeatures, extractF0Stats } from './features.js';
 import forestData from './forest.json' with { type: 'json' };
 import metrics from './metrics.json' with { type: 'json' };
 
@@ -390,6 +423,7 @@ async function analyze(blob, label){
     drawStatic(data, data.length/22050);
     const t0=performance.now();
     const feat=extractFeatures(Float64Array.from(data));
+    feat.push(...extractF0Stats(Float64Array.from(data)));
     const preds=predict(feat);
     console.log('inference', (performance.now()-t0).toFixed(0)+'ms');
     showResult(preds, data.length/22050);
