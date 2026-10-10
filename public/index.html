@@ -218,6 +218,9 @@
     <p class="body">很多宠物翻译产品宣传 90%+ 准确率，但那是「同一只猫的录音再喂回去」的成绩。我们按<strong>猫为单位</strong>划分训练/测试（模型从没听过测试集里那只猫的声音），这才是你家的猫第一次叫时的真实水平：</p>
     <table class="metrics" id="metrics-table"></table>
     <p class="note">随机猜 = 33%。作为参照：Cornell 大学 Nicastro &amp; Owren（2003）与帕多瓦大学 Prato-Previde 等（2020）发现，<strong>人类</strong>分辨陌生猫的发声情境只有 26–41% 的正确率——本模型的分组交叉验证成绩已高于陌生人类，但低于「养猫人听自家猫」。识别错误时会自信地错，请把输出当线索，不是诊断。</p>
+    <div class="calib">
+      <p class="body" style="margin-top:14px"><strong>置信度校准（按猫留出验证）</strong>——模型越「确定」时越靠谱：置信度 ≥70% 才作答时，历史正确率 <strong>≈90%</strong>（但只覆盖 18% 的录音）；≥60% → ≈81%；≥50% → ≈70%。所以低于 50% 我们直接不猜。</p>
+    </div>
   </section>
 
   <section id="tech">
@@ -436,8 +439,9 @@ function showResult(preds, durSec, rms){
   verdict.className='verdict';
   document.getElementById('v-emoji').textContent=L.emoji;
   document.getElementById('v-main').textContent=`听起来像：${L.zh}（${(top.p*100).toFixed(0)}%）`;
-  document.getElementById('v-sub').textContent = top.p>0.55 ? L.line
-    : '有一定把握，但猫叫的个体差异很大——它也可能想说点别的。';
+  // calibrated honesty: >=70% conf → ~90% correct on held-out cats; 50-70% → coin-flip-ish, mark as weak
+  document.getElementById('v-sub').textContent = top.p>=0.70 ? L.line
+    : '把握不算大（这个置信度下历史准确率约六到七成）——多录几段试试，或点示例对比。';
   btn.style.display='';
   btn.onclick=()=>{
     const u=new SpeechSynthesisUtterance(L.line);
