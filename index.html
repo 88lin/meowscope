@@ -803,7 +803,7 @@ document.getElementById('lang-btn').onclick=()=>{
 
 /* ---------- PWA: register service worker for offline install ---------- */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  navigator.serviceWorker.register('./sw.js?v=7').catch(()=>{});
 }
 
 // test hooks (used by automated e2e; harmless in production)
