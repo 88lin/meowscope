@@ -188,3 +188,70 @@ function col(mat, r, nFrames) {
   for (let c = 0; c < nFrames; c++) out[c] = mat[r * nFrames + c];
   return out;
 }
+
+// ---- YIN pitch (parity with librosa.pyin/yin: frame 2048, hop 512, center pad 'constant', trough 0.1) ----
+function yinF0(y) {
+  const FL = 2048, HOP = 512, TAU_MIN = Math.floor(SR / 1200), TAU_MAX = Math.ceil(SR / 150), THR = 0.1;
+  const nFrames = 1 + Math.floor(y.length / HOP); // center=True: pad frame_length//2 both sides
+  const out = new Float64Array(nFrames);
+  const pad = FL >> 1;
+  const get = (i) => (i < 0 || i >= y.length) ? 0 : y[i];
+  for (let f = 0; f < nFrames; f++) {
+    const c = f * HOP; // frame center
+    // diff function over tau
+    const d = new Float64Array(TAU_MAX + 1);
+    for (let tau = TAU_MIN; tau <= TAU_MAX; tau++) {
+      let sum = 0;
+      for (let j = 0; j < FL - tau; j++) {
+        const a = get(c - pad + j), b = get(c - pad + j + tau);
+        const df = a - b; sum += df * df;
+      }
+      d[tau] = sum;
+    }
+    // cumulative mean normalized difference
+    const cmnd = new Float64Array(TAU_MAX + 1);
+    let run = 0;
+    for (let tau = TAU_MIN; tau <= TAU_MAX; tau++) {
+      run += d[tau];
+      cmnd[tau] = run > 0 ? d[tau] * (tau - TAU_MIN + 1) / run : 1;
+    }
+    // find first tau where cmnd < THR then local min, else global min
+    let tauEst = -1;
+    for (let tau = TAU_MIN + 1; tau < TAU_MAX; tau++) {
+      if (cmnd[tau] < THR) {
+        while (tau + 1 < TAU_MAX && cmnd[tau + 1] < cmnd[tau]) tau++;
+        tauEst = tau; break;
+      }
+    }
+    if (tauEst < 0) {
+      let best = TAU_MIN;
+      for (let tau = TAU_MIN; tau <= TAU_MAX; tau++) if (cmnd[tau] < cmnd[best]) best = tau;
+      tauEst = best;
+    }
+    // parabolic interpolation
+    let better = tauEst;
+    if (tauEst > TAU_MIN && tauEst < TAU_MAX) {
+      const s0 = cmnd[tauEst - 1], s1 = cmnd[tauEst], s2 = cmnd[tauEst + 1];
+      const denom = 2 * (2 * s1 - s2 - s0);
+      if (Math.abs(denom) > 1e-12) better = tauEst + (s2 - s0) / denom;
+    }
+    out[f] = SR / better;
+  }
+  return out;
+}
+export function extractF0Stats(y) {
+  const f0 = yinF0(y);
+  const clip = (v) => Math.min(1200, Math.max(150, v));
+  const vals = Array.from(f0, clip);
+  const n = vals.length;
+  const sorted = [...vals].sort((a, b) => a - b);
+  const med = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+  let m = 0; for (const v of vals) m += v; m /= n;
+  let s = 0; for (const v of vals) s += (v - m) * (v - m); s = Math.sqrt(s / n);
+  const t = vals.map((_, i) => i / (SR / 512));
+  let mt = 0; for (const v of t) mt += v; mt /= n;
+  let st = 0; for (const v of t) st += (v - mt) * (v - mt);
+  let cov = 0; for (let i = 0; i < n; i++) cov += (t[i] - mt) * (vals[i] - m);
+  const slope = n > 1 && st > 0 ? cov / st : 0;
+  return [med, s, slope];
+}
