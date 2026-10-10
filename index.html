@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐱 喵语通 · MeowScope — 在浏览器里听懂猫在说什么</title>
 <meta name="description" content="纯浏览器端的猫叫声情境分类器：录音或上传，本地 AI 推理，无任何数据上传。">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="theme-color" content="#d96a2b">
+<meta property="og:title" content="MeowScope — what is your cat saying?">
+<meta property="og:description" content="A cat meow classifier that runs 100% in your browser. Zero uploads. Teach it YOUR cat.">
+<meta property="og:image" content="https://88lin.github.io/meowscope/icon-512.png">
 <style>
   :root{
     --bg:#faf7f2; --ink:#2b2620; --muted:#8a8175; --line:#e6dfd3;
@@ -18,7 +25,21 @@
     background:var(--bg); color:var(--ink);
     font-family:"Source Han Serif SC","Noto Serif SC","Songti SC",Georgia,serif;
     line-height:1.75;
+    position:relative;
   }
+  /* soft animated aurora blobs (Color4Bg vibe) — fixed, behind content, no repaint of text */
+  body::before, body::after{
+    content:""; position:fixed; z-index:-1; border-radius:50%;
+    filter:blur(90px); opacity:.35; pointer-events:none;
+  }
+  body::before{ width:52vw; height:52vw; left:-12vw; top:-14vw;
+    background:radial-gradient(circle at 35% 35%, #f6c89a, #f2a65e 55%, transparent 75%);
+    animation:drift1 26s ease-in-out infinite alternate; }
+  body::after{ width:46vw; height:46vw; right:-14vw; bottom:-10vw;
+    background:radial-gradient(circle at 60% 60%, #cfe3d2, #9cc4a8 55%, transparent 78%);
+    animation:drift2 32s ease-in-out infinite alternate; }
+  @keyframes drift1{ to{ transform:translate(9vw,7vh) scale(1.12); } }
+  @keyframes drift2{ to{ transform:translate(-8vw,-6vh) scale(1.08); } }
   ::selection{background:var(--accent-soft)}
   .wrap{max-width:880px;margin:0 auto;padding:0 24px}
   a{color:var(--accent);text-decoration:none}
@@ -55,6 +76,13 @@
     letter-spacing:.08em;transition:transform .08s ease, opacity .15s, background .15s, border-color .15s;
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;min-height:44px;
   }
+  button{position:relative;overflow:hidden}
+  button::after{ /* sheen sweep on hover (uiverse vibe) */
+    content:""; position:absolute; inset:0; transform:translateX(-120%) skewX(-18deg);
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
+    transition:transform .55s ease; pointer-events:none;
+  }
+  button:hover:not(:disabled)::after{transform:translateX(120%) skewX(-18deg)}
   button:hover:not(:disabled){background:#443c32;border-color:#443c32}
   button:active{transform:translateY(1px)}
   button.ghost{background:transparent;color:var(--ink)}
@@ -105,9 +133,16 @@
   .p-controls select{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#fff}
   .p-status{margin-top:12px;font-size:.86rem;color:var(--muted)}
   .mode-tag{margin-left:auto;font-size:.72rem;border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:3px 10px;white-space:nowrap}
+  .lang-btn{font-size:.8rem;padding:6px 14px;border-radius:999px;min-height:0;border:1px solid var(--line);letter-spacing:.05em}
 
   /* ---------- sections ---------- */
   section{padding:56px 0;border-bottom:1px solid var(--line)}
+  /* scroll reveal (60fps.design vibe) */
+  .reveal{opacity:0; transform:translateY(26px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1; transform:none}
+  .cards .card.reveal:nth-child(2){transition-delay:.08s}
+  .cards .card.reveal:nth-child(3){transition-delay:.16s}
+  .cards .card.reveal:nth-child(4){transition-delay:.24s}
   section h2{font-size:1.3rem;margin-bottom:20px;letter-spacing:.04em}
   section h2 small{font-size:.8rem;color:var(--muted);letter-spacing:.2em;margin-left:10px}
   p.body{color:#4c463d;max-width:700px}
@@ -151,6 +186,7 @@
   @media (prefers-reduced-motion: reduce){
     .card,.bar-fill,button{transition:none!important;animation:none!important}
     .rec-dot{animation:none}
+    body::before,body::after{animation:none}
   }
 </style>
 </head>
@@ -158,37 +194,37 @@
 
 <header>
   <div class="wrap topbar">
-    <div class="logo"><b>喵语通</b><span>MEOWSCOPE</span></div>
-    <a class="gh-link" href="https://github.com/88lin/meowscope" target="_blank" rel="noopener">GitHub ↗</a>
+    <div class="logo"><b>MeowScope</b><span>MEOWSCOPE</span></div>
+    <span style="display:flex;gap:14px;align-items:center"><button id="lang-btn" class="ghost lang-btn"></button><a class="gh-link" href="https://github.com/88lin/meowscope" target="_blank" rel="noopener">GitHub ↗</a></span>
   </div>
 </header>
 
 <main class="wrap">
 
   <div class="hero">
-    <div class="kicker">纯浏览器端 · 零上传 · 开源</div>
-    <h1>你的猫在说什么？<br><em>录音，让 AI 替它开口。</em></h1>
+    <div class="kicker" data-i18n="hero.kicker"></div>
+    <h1><span data-i18n="hero.h1a"></span><br><em data-i18n="hero.h1b"></em></h1>
     <p class="lead">基于 CatMeows 学术数据集训练的猫叫情境分类器，特征提取与推理全部在浏览器本地完成——你的录音不会离开这台设备。它认得出<strong>陌生猫</strong>约六成的喵（比人类强，见下方数据），但听不出你的猫「爱不爱你」——先点下面的示例感受一下它听懂什么。</p>
   </div>
 
   <div class="meter-card">
     <div class="meter-head">
-      <h2>现场翻译</h2>
-      <span class="state" id="state">就绪</span>
+      <h2 data-i18n="meter.h2"></h2>
+      <span class="state" id="state"></span>
     </div>
     <canvas id="wave" width="800" height="84"></canvas>
     <div class="controls">
-      <button id="btn-record">录音</button>
-      <button id="btn-stop" class="ghost" disabled>停止</button>
-      <button id="btn-upload" class="ghost">上传音频文件</button>
+      <button id="btn-record" data-i18n="btn.record"></button>
+      <button id="btn-stop" class="ghost" disabled data-i18n="btn.stop"></button>
+      <button id="btn-upload" class="ghost" data-i18n="btn.upload"></button>
       <input type="file" id="file" accept="audio/*">
     </div>
-    <div class="hint">建议 1–5 秒、无背景音乐；浏览器录音需授权麦克风。支持 mp3 / wav / m4a / ogg 等常见格式。</div>
+    <div class="hint" data-i18n="hint"></div>
     <div class="demos" id="demos">
-      <span class="lbl">先听听数据集里的真猫叫：</span>
-      <button class="demo-btn" data-i="0">🪮 刷毛示例</button>
-      <button class="demo-btn" data-i="1">🍚 等饭示例</button>
-      <button class="demo-btn" data-i="2">🚪 隔离示例</button>
+      <span class="lbl" data-i18n="demos.lbl"></span>
+      <button class="demo-btn" data-i="0" data-i18n="demo.brushing"></button>
+      <button class="demo-btn" data-i="1" data-i18n="demo.food"></button>
+      <button class="demo-btn" data-i="2" data-i18n="demo.isolation"></button>
     </div>
 
     <div id="result">
@@ -201,105 +237,106 @@
         <span class="mode-tag" id="v-mode" style="display:none">专属模型</span>
       </div>
       <div class="bars" id="bars"></div>
-      <button id="btn-speak" class="ghost speak-btn">🔊 用猫的口吻说出来</button>
+      <button id="btn-speak" class="ghost speak-btn" data-i18n="btn.speak"></button>
+      <button id="btn-share" class="ghost speak-btn" data-i18n="share.btn" style="display:none"></button>
     </div>
   </div>
 
-  <section id="personal">
-    <h2>教它认识你家猫 <small>PERSONALIZE</small></h2>
-    <p class="body">通用模型没听过你家猫的声音。在三个情境下各录 <strong>3 段</strong>（共 9 段、每段 1–3 秒），页面会在浏览器里<strong>本地训练一个你家猫专属模型</strong>——依然零上传，存在这台设备的 localStorage 里，随录随用。</p>
+  <section id="personal" class="reveal">
+    <h2><span data-i18n="p.h2"></span> <small data-i18n="p.h2s"></small></h2>
+    <p class="body" data-i18n="p.intro"></p>
     <div class="personal-box">
       <div class="p-mode" id="p-mode">
-        <button id="mode-universal" class="mode-btn active">通用模型</button>
-        <button id="mode-personal" class="mode-btn" disabled>我家猫专属 🔒</button>
+        <button id="mode-universal" class="mode-btn active" data-i18n="p.mode.universal"></button>
+        <button id="mode-personal" class="mode-btn" disabled data-i18n="p.mode.personal"></button>
       </div>
       <div class="p-steps" id="p-steps"></div>
       <div class="p-controls">
         <select id="p-label">
-          <option value="0">🪮 正在被刷毛</option>
-          <option value="1">🍚 正在等饭/催饭</option>
-          <option value="2">🚪 被隔离/关在门外</option>
+          <option value="0"></option>
+          <option value="1"></option>
+          <option value="2"></option>
         </select>
-        <button id="p-record" class="ghost">🎙️ 录一段教学样本</button>
-        <button id="p-train" class="ghost" disabled>🧠 训练专属模型</button>
-        <button id="p-reset" class="ghost" title="清空教学样本">重置</button>
+        <button id="p-record" class="ghost" data-i18n="p.btn.record"></button>
+        <button id="p-train" class="ghost" disabled data-i18n="p.btn.train"></button>
+        <button id="p-reset" class="ghost" data-i18n="p.btn.reset"></button>
       </div>
-      <div class="p-status" id="p-status">还没录教学样本。</div>
+      <div class="p-status" id="p-status"></div>
     </div>
   </section>
 
-  <section id="how">
-    <h2>它听得懂什么 <small>THREE CONTEXTS</small></h2>
-    <p class="body">模型区分的是 CatMeows 数据集里的三种发声情境。这是目前学术界少有的、有严格标注的公开猫叫数据集——先承认：喵语没有百科全书，AI 只能听情境，不能读心。</p>
+  <section id="how" class="reveal">
+    <h2><span data-i18n="how.h2"></span> <small data-i18n="how.h2s"></small></h2>
+    <p class="body" data-i18n="how.intro"></p>
     <div class="cards">
       <div class="card">
-        <h3><span class="tag">B</span>被刷毛</h3>
-        <p>主人拿着梳子刷毛时发出的喵。常见为短促、音调平缓的抗议或容忍声。</p>
+        <h3><span class="tag">B</span><span data-i18n="card.B.h"></span></h3>
+        <p data-i18n="card.B.p"></p>
         <div class="prob">置信度参考：per_class.brushing</div>
       </div>
       <div class="card">
-        <h3><span class="tag">F</span>等饭</h3>
-        <p>站在食盆前等开饭的喵。节奏往往急促重复，是最有辨识度的类别。</p>
+        <h3><span class="tag">F</span><span data-i18n="card.F.h"></span></h3>
+        <p data-i18n="card.F.p"></p>
         <div class="prob">置信度参考：per_class.waiting_for_food</div>
       </div>
       <div class="card">
-        <h3><span class="tag">I</span>被隔离</h3>
-        <p>被独自留在陌生环境中的喵。鸣叫更长、音更高， distress 特征明显。</p>
+        <h3><span class="tag">I</span><span data-i18n="card.I.h"></span></h3>
+        <p data-i18n="card.I.p"></p>
         <div class="prob">置信度参考：per_class.isolation</div>
       </div>
     </div>
   </section>
 
-  <section id="honest">
-    <h2>诚实的数据 <small>REAL NUMBERS, NO HYPE</small></h2>
-    <p class="body">很多宠物翻译产品宣传 90%+ 准确率，但那是「同一只猫的录音再喂回去」的成绩。我们按<strong>猫为单位</strong>划分训练/测试（模型从没听过测试集里那只猫的声音），这才是你家的猫第一次叫时的真实水平：</p>
+  <section id="honest" class="reveal">
+    <h2><span data-i18n="h.h2"></span> <small data-i18n="h.h2s"></small></h2>
+    <p class="body" data-i18n="h.intro"></p>
     <table class="metrics" id="metrics-table"></table>
-    <p class="note">随机猜 = 33%。作为参照：Cornell 大学 Nicastro &amp; Owren（2003）与帕多瓦大学 Prato-Previde 等（2020）发现，<strong>人类</strong>分辨陌生猫的发声情境只有 26–41% 的正确率——本模型的分组交叉验证成绩已高于陌生人类，但低于「养猫人听自家猫」。识别错误时会自信地错，请把输出当线索，不是诊断。</p>
+    <p class="note" data-i18n="h.note"></p>
     <div class="calib">
-      <p class="body" style="margin-top:14px"><strong>置信度校准（按猫留出验证）</strong>——模型越「确定」时越靠谱：置信度 ≥70% 才作答时，历史正确率 <strong>≈90%</strong>（但只覆盖 18% 的录音）；≥60% → ≈81%；≥50% → ≈70%。所以低于 50% 我们直接不猜。</p>
+      <p class="body" style="margin-top:14px" data-i18n="h.calib.p"></p>
     </div>
   </section>
 
-  <section id="tech">
-    <h2>原理 <small>HOW IT WORKS</small></h2>
-    <p class="body">整条链路是教科书式的音频分类，没有黑魔法：</p>
+  <section id="tech" class="reveal">
+    <h2><span data-i18n="t.h2"></span> <small data-i18n="t.h2s"></small></h2>
+    <p class="body" data-i18n="t.intro"></p>
     <div class="cards">
-      <div class="card"><h3><span class="tag">01</span>特征</h3><p>20 维 MFCC + 一阶差分 + 谱心质/谱滚降/过零率/RMS + YIN 音高统计（中位数、起伏、音高走向），共 70 维。与 Python librosa 逐位对拍验证（误差 &lt; 1e-6）。</p></div>
-      <div class="card"><h3><span class="tag">02</span>模型</h3><p>随机森林（150 棵、深度 7），在小样本（440 条）下比深度网络更稳。导出为纯 JSON 决策树在浏览器执行，gzip 后仅 ~50KB。</p></div>
-      <div class="card"><h3><span class="tag">03</span>隐私</h3><p>音频解码、重采样、特征、推理全部在本页面完成。没有服务器、没有 cookie、没有统计脚本。</p></div>
+      <div class="card"><h3><span class="tag">01</span><span data-i18n="t.c1.h"></span></h3><p data-i18n="t.c1.p"></p></div>
+      <div class="card"><h3><span class="tag">02</span><span data-i18n="t.c2.h"></span></h3><p data-i18n="t.c2.p"></p></div>
+      <div class="card"><h3><span class="tag">03</span><span data-i18n="t.c3.h"></span></h3><p data-i18n="t.c3.p"></p></div>
     </div>
-    <p class="body" style="margin-top:18px">音高特征不是随便加的：Schötz 等（2023）发现<strong>音高上升的喵多出现在积极情境，下降的多为应激</strong>，加上 YIN 中位数/起伏后，按猫划分成绩从 59.4% 提升到 60.9%。</p>
+    <p class="body" style="margin-top:18px" data-i18n="t.footnote"></p>
   </section>
 
-  <section id="science">
-    <h2>科学背景 <small>WHAT SCIENCE SAYS</small></h2>
-    <p class="body">喵叫这件事本身，比想象中有趣得多：</p>
+  <section id="science" class="reveal">
+    <h2><span data-i18n="s.h2"></span> <small data-i18n="s.h2s"></small></h2>
+    <p class="body" data-i18n="s.intro"></p>
     <div class="cards">
-      <div class="card"><h3><span class="tag">2003</span>喵是为人定制的</h3><p>Cornell 的 Nicastro &amp; Owren 让 26 位人类听陌生猫叫做情境分类，最好的听者也只有 41% 正确。喵不是精确信号，而是「引起注意的、略带负面情绪的声音」——它的功能是 provoke（激起反应），不是 specify（指定含义）。</p></div>
-      <div class="card"><h3><span class="tag">2004</span>驯化塑造了喵</h3><p>Nicastro 对比家猫与非洲野猫发现：家猫的喵更短、基频更高，且所有人类听者（无论爱不爱猫）都认为更好听——喵的「可爱」是被人类听觉偏好筛选出来的。</p></div>
-      <div class="card"><h3><span class="tag">2020</span>养猫的人更准</h3><p>Prato-Previde 等发现人类整体正确率不高于随机，但<strong>猫主人显著高于非主人</strong>——尤其判断「被隔离」和「被刷毛」。等饭喵最易识别（40.4%），隔离喵最难（26.7%）。</p></div>
-      <div class="card"><h3><span class="tag">2025</span>家猫喵更「个性化」</h3><p>Scientific Reports 的跨物种比较发现：家猫的喵声学变异度显著大于五种野猫——喵在人与人共处的环境里持续演化，每只猫都在发展自己的「口音」。</p></div>
+      <div class="card"><h3><span class="tag">2003</span><span data-i18n="s.c1.h"></span></h3><p data-i18n="s.c1.p"></p></div>
+      <div class="card"><h3><span class="tag">2004</span><span data-i18n="s.c2.h"></span></h3><p data-i18n="s.c2.p"></p></div>
+      <div class="card"><h3><span class="tag">2020</span><span data-i18n="s.c3.h"></span></h3><p data-i18n="s.c3.p"></p></div>
+      <div class="card"><h3><span class="tag">2025</span><span data-i18n="s.c4.h"></span></h3><p data-i18n="s.c4.p"></p></div>
     </div>
-    <p class="note" style="margin-top:14px">顺带一提：成年猫之间几乎不喵——喵主要是说给人类听的。所以严格来说，这个页面翻译的不是「猫语」，是猫对你的「专属人语」。</p>
+    <p class="note" style="margin-top:14px" data-i18n="s.footnote"></p>
   </section>
 
-  <section id="limits">
-    <h2>边界与争议 <small>WHAT WE DON'T CLAIM</small></h2>
-    <p class="body">杠精时间——也是我们最想认真回应的部分：</p>
+  <section id="limits" class="reveal">
+    <h2><span data-i18n="l.h2"></span> <small data-i18n="l.h2s"></small></h2>
+    <p class="body" data-i18n="l.intro"></p>
     <div class="cards">
-      <div class="card"><h3>猫叫不是语言</h3><p>同一声「喵」在不同猫、不同场合含义可以完全不同（学界称为语义混叠）。本项目只做「情境分类」，不做「翻译句子」。</p></div>
-      <div class="card"><h3>个体差异大</h3><p>模型按猫泛化时准确率约 60%。对品种、年龄、口音敏感。越用越准的产品需要积累你家猫的数据——这正是配套 App 的方向。</p></div>
-      <div class="card"><h3>狗和仓鼠？</h3><p>不做。仓鼠的 ultrasonic vocalization 在 20–100kHz，人耳和普通麦克风都收不到，任何「仓鼠翻译器」都是营销。</p></div>
+      <div class="card"><h3 data-i18n="l.c1.h"></h3><p data-i18n="l.c1.p"></p></div>
+      <div class="card"><h3 data-i18n="l.c2.h"></h3><p data-i18n="l.c2.p"></p></div>
+      <div class="card"><h3 data-i18n="l.c3.h"></h3><p data-i18n="l.c3.p"></p></div>
     </div>
   </section>
 
-  <section id="oss">
-    <h2>开源与复现 <small>MIT LICENSED</small></h2>
-    <p class="body">完整训练与验证代码、数据下载脚本、JS/Python 特征对拍测试都在仓库里。你可以自己重新训练并替换模型：</p>
+  <section id="oss" class="reveal">
+    <h2><span data-i18n="o.h2"></span> <small data-i18n="o.h2s"></small></h2>
+    <p class="body" data-i18n="o.intro"></p>
     <div class="cards">
-      <div class="card"><h3><span class="tag">STEP</span>1 · 数据</h3><p>CatMeows（Zenodo, CC-BY-NC）：21 只猫、440 段喵叫，覆盖缅因猫与欧洲短毛猫。</p></div>
-      <div class="card"><h3><span class="tag">STEP</span>2 · 训练</h3><p><code style="font-size:.8rem">pip install librosa scikit-learn && python scripts/train.py</code> 输出模型与交叉验证指标。</p></div>
-      <div class="card"><h3><span class="tag">STEP</span>3 · 导出</h3><p><code style="font-size:.8rem">python scripts/export_js.py</code> 把森林转成 JSON，<code style="font-size:.8rem">node scripts/test_parity.cjs</code> 验证 JS 特征与 Python 一致。</p></div>
+      <div class="card"><h3><span class="tag">STEP</span><span data-i18n="o.c1.h"></span></h3><p data-i18n="o.c1.p"></p></div>
+      <div class="card"><h3><span class="tag">STEP</span><span data-i18n="o.c2.h"></span></h3><p><code style="font-size:.8rem">pip install librosa scikit-learn && python scripts/train.py</code> 输出模型与交叉验证指标。</p></div>
+      <div class="card"><h3><span class="tag">STEP</span><span data-i18n="o.c3.h"></span></h3><p><code style="font-size:.8rem">python scripts/export_js.py</code> 把森林转成 JSON，<code style="font-size:.8rem">node scripts/test_parity.cjs</code> 验证 JS 特征与 Python 一致。</p></div>
     </div>
   </section>
 
@@ -307,40 +344,75 @@
 
 <footer>
   <div class="wrap row">
-    <span>喵语通 MeowScope · 数据集 CatMeows（Zenodo 4008297，CC-BY-NC）· 文献：Nicastro & Owren 2003/2004, Prato-Previde 2020, Schötz 2023, Sci. Rep. 2025 · 仅供研究与娱乐</span>
-    <span>MIT License · <a href="https://github.com/88lin/meowscope">GitHub</a></span>
+    <span data-i18n="f.left"></span>
+    <span><span data-i18n="f.license"></span> · <a href="https://github.com/88lin/meowscope">GitHub</a></span>
   </div>
 </footer>
 
+<script>
+/* scroll reveal — 60fps.design vibe; no-op under reduced motion */
+(function(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){
+    document.addEventListener('DOMContentLoaded',()=>{
+      document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));
+    });
+    return;
+  }
+  const io=new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+  }),{threshold:.12});
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+    document.querySelectorAll('.cards').forEach(c=>c.querySelectorAll(':scope > .card').forEach(el=>el.classList.add('reveal')));
+    document.querySelectorAll('.cards .card.reveal').forEach(el=>io.observe(el));
+  });
+})();
+</script>
 <script type="module">
 import { extractFeatures, extractF0Stats } from './features.js';
 import { DEMOS } from './demos.js';
 import forestData from './forest.json' with { type: 'json' };
 import metrics from './metrics.json' with { type: 'json' };
+import { t, applyLang } from './i18n.js';
+applyLang();
 
 /* ---------- labels & copy ---------- */
-const LABELS = {
-  brushing:        { zh: '被刷毛',  emoji: '🪮', line: '「梳毛可以，但别刷太久，两下就够。」' },
-  waiting_for_food:{ zh: '在等饭',  emoji: '🍚', line: '「铲屎的，饭碗空了三秒钟了，效率呢？！」' },
-  isolation:       { zh: '被隔离',  emoji: '🚪', line: '「这个房间很陌生，开门！本喵要回家！」' },
+const LINES = {
+  en: {
+    brushing: '“Brushing is fine. But two strokes is enough, human.”',
+    waiting_for_food: '“The bowl has been empty for THREE seconds. Efficiency?!”',
+    isolation: '“This room is unfamiliar. Open the door. Meow.”',
+  },
+  zh: {
+    brushing: '「梳毛可以，但别刷太久，两下就够。」',
+    waiting_for_food: '「铲屎的，饭碗空了三秒钟了，效率呢？！」',
+    isolation: '「这个房间很陌生，开门！本喵要回家！」',
+  }
 };
+const LABELS = {
+  brushing:        { zh: '被刷毛', en: 'Being brushed',  emoji: '🪮' },
+  waiting_for_food:{ zh: '在等饭', en: 'Waiting for food', emoji: '🍚' },
+  isolation:       { zh: '被隔离', en: 'Being isolated',  emoji: '🚪' },
+};
+const LName = k => LABELS[k][window.__i18n.LANG] || LABELS[k].zh;
+const LLine = k => LINES[window.__i18n.LANG][k] || LINES.zh[k];
 const stateEl = document.getElementById('state');
 const resultEl = document.getElementById('result');
 const barsEl = document.getElementById('bars');
 
 /* ---------- metrics table ---------- */
 {
-  const t = document.getElementById('metrics-table');
+  const mt = document.getElementById('metrics-table');
   const pc = metrics.per_class;
-  t.innerHTML = `
-    <tr><th>验证方式</th><th>准确率</th><th>说明</th></tr>
-    <tr><td>按猫分组 5 折交叉验证</td><td class="num"><b>${(metrics.grouped_5fold_cv_accuracy*100).toFixed(1)}%</b></td><td>训练与测试永远来自不同的猫</td></tr>
-    <tr><td>留一猫验证 (LOSO)</td><td class="num"><b>${(metrics.leave_one_cat_out_accuracy*100).toFixed(1)}%</b></td><td>每折只留一只猫当测试集</td></tr>
-    ${metrics.labels.map(l=>`<tr><td>· ${LABELS[l].zh}（单独召回）</td><td class="num">${(pc[l].recall*100).toFixed(0)}%</td><td>${l}</td></tr>`).join('')}`;
+  mt.innerHTML = `
+    <tr><th>${t('h.th.method')}</th><th>${t('h.th.acc')}</th><th>${t('h.th.note')}</th></tr>
+    <tr><td>${t('h.row.gkf')}</td><td class="num"><b>${(metrics.grouped_5fold_cv_accuracy*100).toFixed(1)}%</b></td><td>${t('h.row.gkf.n')}</td></tr>
+    <tr><td>${t('h.row.loso')}</td><td class="num"><b>${(metrics.leave_one_cat_out_accuracy*100).toFixed(1)}%</b></td><td>${t('h.row.loso.n')}</td></tr>
+    ${metrics.labels.map(l=>`<tr><td>· ${LName(l)} ${t('h.row.recall')}</td><td class="num">${(pc[l].recall*100).toFixed(0)}%</td><td>${l}</td></tr>`).join('')}`;
   // fill the per-class prob references
   document.querySelectorAll('.card .prob').forEach((el,i)=>{
     const key = ['brushing','waiting_for_food','isolation'][i];
-    el.textContent = `按猫划分召回率 ${(pc[key].recall*100).toFixed(0)}%`;
+    el.textContent = `${t('per.recall')} ${(pc[key].recall*100).toFixed(0)}%`;
   });
 }
 
@@ -453,7 +525,7 @@ function showResult(preds, durSec, rms){
   const btn=document.getElementById('btn-speak');
   barsEl.innerHTML = preds.map(p=>`
     <div class="bar-row">
-      <span class="name">${LABELS[p.c].emoji} ${LABELS[p.c].zh}</span>
+      <span class="name">${LABELS[p.c].emoji} ${LName(p.c)}</span>
       <span class="bar-track"><span class="bar-fill" style="width:0%"></span></span>
       <span class="pct">${(p.p*100).toFixed(0)}%</span>
     </div>`).join('');
@@ -461,39 +533,44 @@ function showResult(preds, durSec, rms){
     barsEl.querySelectorAll('.bar-fill').forEach((el,i)=>el.style.width=(preds[i].p*100)+'%');
   }));
 
+  const shareBtn=document.getElementById('btn-share');
+  const showShare=(label,pct)=>{ shareBtn.style.display=''; shareBtn.onclick=()=>shareCard(top,label,pct); };
+
   // honesty gate: low-confidence top class + near-silence => refuse a fake verdict
   if (top.p < 0.50) {
     verdict.className='verdict unsure';
     document.getElementById('v-emoji').textContent='🤔';
-    document.getElementById('v-main').textContent='这段声音我不太确定';
-    document.getElementById('v-sub').textContent=
-      '没有哪个情境拿到过半票数——它可能不是猫叫（人声、音乐、环境噪声都会这样），也可能是一只模型没学过的猫在用自己的口音说话。上面的三行只是模型的原始倾向，别当结论。';
+    document.getElementById('v-main').textContent=t('v.unsure');
+    document.getElementById('v-sub').textContent=t('v.unsure.sub');
     btn.style.display='none';
-    stateEl.textContent=`分析完成 · ${durSec.toFixed(1)} 秒 · 置信度不足，仅供参考`;
+    showShare(t('share.unsure'), (top.p*100).toFixed(0));
+    stateEl.textContent=`${t('st.done')} · ${durSec.toFixed(1)}s · ${t('st.low_conf')}`;
     return;
   }
   const L=LABELS[top.c];
   verdict.className='verdict';
   document.getElementById('v-emoji').textContent=L.emoji;
-  document.getElementById('v-main').textContent=`听起来像：${L.zh}（${(top.p*100).toFixed(0)}%）`;
+  document.getElementById('v-main').textContent=`${t('v.heard')}: ${LName(top.c)}（${(top.p*100).toFixed(0)}%）`.replace('（',' (').replace('）',')');
   // calibrated honesty: >=70% conf → ~90% correct on held-out cats; 50-70% → coin-flip-ish, mark as weak
-  document.getElementById('v-sub').textContent = top.p>=0.70 ? L.line
-    : '把握不算大（这个置信度下历史准确率约六到七成）——多录几段试试，或点示例对比。';
+  document.getElementById('v-sub').textContent = top.p>=0.70 ? LLine(top.c) : t('v.weakconf');
   btn.style.display='';
   btn.onclick=()=>{
-    const u=new SpeechSynthesisUtterance(L.line);
-    u.lang='zh-CN'; u.rate=1.05; u.pitch=1.15;
+    const line=LLine(top.c);
+    const u=new SpeechSynthesisUtterance(line);
+    u.lang = window.__i18n.LANG==='zh' ? 'zh-CN' : 'en-US';
+    u.rate=1.05; u.pitch=1.15;
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   };
-  stateEl.textContent=`分析完成 · ${durSec.toFixed(1)} 秒音频`;
+  showShare(LLine(top.c), (top.p*100).toFixed(0));
+  stateEl.textContent=`${t('st.done')} · ${durSec.toFixed(1)}s`;
 }
 
 async function analyze(blob, label){
   try{
-    stateEl.textContent='正在分析…';
+    stateEl.textContent=t('st.analyzing');
     resultEl.style.display='none';
     const data=await decodeToBuffer(blob);
-    if(data.length<22050*0.3){ stateEl.textContent='音频太短了，录长一点（至少 1 秒）'; drawIdle(); return; }
+    if(data.length<22050*0.3){ stateEl.textContent=t('err.too_short'); drawIdle(); return; }
     // energy gate: near-silence
     let e=0; for(let i=0;i<data.length;i++) e+=data[i]*data[i];
     const rms=Math.sqrt(e/data.length);
@@ -503,11 +580,12 @@ async function analyze(blob, label){
       const verdict=document.querySelector('.verdict');
       verdict.className='verdict unsure';
       document.getElementById('v-emoji').textContent='🔇';
-      document.getElementById('v-main').textContent='几乎没有声音';
-      document.getElementById('v-sub').textContent='这段音频接近静音——离麦克风近一点，或者调高音量再试。';
+      document.getElementById('v-main').textContent=t('v.silence');
+      document.getElementById('v-sub').textContent=t('v.silence.sub');
       document.getElementById('btn-speak').style.display='none';
+      document.getElementById('btn-share').style.display='none';
       barsEl.innerHTML='';
-      stateEl.textContent='没有检测到有效声音';
+      stateEl.textContent=t('st.no_sound');
       return;
     }
     const t0=performance.now();
@@ -515,14 +593,14 @@ async function analyze(blob, label){
     feat.push(...extractF0Stats(Float64Array.from(data)));
     const preds = (usePersonal && personalModel) ? predictPersonal(feat) : predict(feat);
     if(usePersonal && personalModel){
-      document.getElementById('v-mode').textContent='专属模型';
+      document.getElementById('v-mode').textContent=t('tag.personal');
       document.getElementById('v-mode').style.display='';
     } else document.getElementById('v-mode').style.display='none';
     console.log('inference', (performance.now()-t0).toFixed(0)+'ms');
     showResult(preds, data.length/22050, rms);
   }catch(e){
     console.error(e);
-    stateEl.textContent='无法解析这段音频，试试别的文件或重新录音';
+    stateEl.textContent=t('err.decode');
     drawIdle();
   }
 }
@@ -533,7 +611,7 @@ const btnRec=document.getElementById('btn-record'), btnStop=document.getElementB
 btnRec.onclick=async()=>{
   try{
     mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
-  }catch(e){ stateEl.textContent='麦克风授权被拒绝，可以在浏览器设置里重新允许'; return; }
+  }catch(e){ stateEl.textContent=t('err.mic'); return; }
   const acx=new AudioContext();
   const src=acx.createMediaStreamSource(mediaStream);
   liveAnalyser=acx.createAnalyser(); liveAnalyser.fftSize=2048;
@@ -549,10 +627,10 @@ btnRec.onclick=async()=>{
   };
   mediaRec.start();
   btnRec.disabled=true; btnStop.disabled=false;
-  stateEl.textContent='录音中… 叫一声你的猫！';
+  stateEl.textContent=t('st.analyzing')+' 🎙️';;
   btnRec.innerHTML='<span class="rec-dot"></span>录音中';
 };
-btnStop.onclick=()=>{ if(mediaRec&&mediaRec.state==='recording')mediaRec.stop(); btnRec.disabled=false; btnStop.disabled=true; btnRec.textContent='录音'; };
+btnStop.onclick=()=>{ if(mediaRec&&mediaRec.state==='recording')mediaRec.stop(); btnRec.disabled=false; btnStop.disabled=true; btnRec.textContent=t('btn.record'); };
 
 /* ---------- upload ---------- */
 const fileInput=document.getElementById('file');
@@ -568,10 +646,10 @@ document.querySelectorAll('.demo-btn').forEach(btn=>{
     if(demoBtnEl){ demoBtnEl.classList.remove('playing'); demoBtnEl.textContent=demoBtnEl.textContent.replace(' ⏸',''); }
     if(demoBtnEl===btn){ demoBtnEl=null; demoAudio=null; return; }
     demoBtnEl=btn; btn.classList.add('playing'); btn.textContent+=' ⏸';
-    stateEl.textContent=`播放示例：${d.label}（${d.file}）`;
+    stateEl.textContent=`${t('demo.playing')}: ${d.file}`;
     const ab=await (await fetch(d.data)).arrayBuffer();
     demoAudio=new Audio(d.data);
-    demoAudio.onended=()=>{ btn.classList.remove('playing'); btn.textContent=btn.textContent.replace(' ⏸',''); stateEl.textContent='就绪'; if(demoBtnEl===btn)demoBtnEl=null; };
+    demoAudio.onended=()=>{ btn.classList.remove('playing'); btn.textContent=btn.textContent.replace(' ⏸',''); stateEl.textContent=t('state.ready'); if(demoBtnEl===btn)demoBtnEl=null; };
     analyze(await (await fetch(d.data)).blob(), 'demo');
     demoAudio.play();
   };
@@ -599,16 +677,16 @@ function pRender(){
   const counts=[0,0,0]; pSamples.forEach(s=>counts[s.label]++);
   const el=document.getElementById('p-steps');
   el.innerHTML = CLASS_KEYS.map((k,i)=>
-    `<span class="p-step ${counts[i]>=3?'done':''}">${LABELS[k].emoji} ${LABELS[k].zh} ${counts[i]}/3</span>`).join('');
+    `<span class="p-step ${counts[i]>=3?'done':''}">${LABELS[k].emoji} ${LName(k)} ${counts[i]}/3</span>`).join('');
   const ok=counts.every(c=>c>=3);
   document.getElementById('p-train').disabled=!ok;
   const btnP=document.getElementById('mode-personal');
   btnP.disabled=!personalModel;
-  btnP.textContent = personalModel ? `我家猫专属（${personalModel.n} 段）` : '我家猫专属 🔒';
+  btnP.textContent = personalModel ? t('p.mode.personal.on', personalModel.n) : t('p.mode.personal');
   const st=document.getElementById('p-status');
-  if(personalModel && !ok) st.textContent=`专属模型已就绪（${personalModel.n} 段样本训练）。可以继续补录，录满后再点训练更新。`;
-  else if(ok) st.textContent='三个情境都录满了！点「训练专属模型」（本地约 1 秒）。';
-  else st.textContent=`已录 ${pSamples.length} 段，每个情境至少 3 段。录音时会自动提取特征，音频本身不保存、不上传。`;
+  if(personalModel && !ok) st.textContent=t('p.status.model', personalModel.n);
+  else if(ok) st.textContent=t('p.status.ready');
+  else st.textContent=t('p.status.recording', pSamples.length);
 }
 
 /* training data: normalize features with personal mean/sd, train multinomial logistic regression (full-batch GD) */
@@ -643,8 +721,7 @@ function trainPersonal(){
   }
   personalModel={W,b,mu,sd,n,hit, total:n};
   lsSave(); pRender();
-  document.getElementById('p-status').textContent=
-    `✅ 专属模型训练完成（${n} 段）。教学样本回代正确率 ${Math.round(100*hit/n)}%——这只是“背课文”成绩，真实表现请以实际听感为准。已在结果区自动切换为专属模型。`;
+  document.getElementById('p-status').textContent=t('p.status.trained', n, Math.round(100*hit/n));
   document.getElementById('mode-personal').click();
 }
 
@@ -660,7 +737,7 @@ function predictPersonal(feat){
 document.getElementById('p-record').onclick=async()=>{
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
-  catch(e){ document.getElementById('p-status').textContent='麦克风授权被拒绝。'; return; }
+  catch(e){ document.getElementById('p-status').textContent=t('err.mic'); return; }
   const btn=document.getElementById('p-record');
   btn.disabled=true; btn.textContent='<span class="rec-dot"></span>录音中…';
   const rec=new MediaRecorder(stream); const chunks=[];
@@ -671,12 +748,12 @@ document.getElementById('p-record').onclick=async()=>{
     const blob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});
     try{
       const data=await decodeToBuffer(blob);
-      if(data.length<22050*0.5){ document.getElementById('p-status').textContent='太短了，请录 1–3 秒。'; return; }
+      if(data.length<22050*0.5){ document.getElementById('p-status').textContent=t('p.status.short'); return; }
       const f=extractFeatures(Float64Array.from(data));
       f.push(...extractF0Stats(Float64Array.from(data)));
       pSamples.push({label:+document.getElementById('p-label').value, feat:Array.from(f)});
       lsSave(); pRender();
-    }catch(e){ document.getElementById('p-status').textContent='这段录音解析失败，再试一次。'; }
+    }catch(e){ document.getElementById('p-status').textContent=t('p.status.fail'); }
   };
   rec.start();
   setTimeout(()=>{ if(rec.state==='recording') rec.stop(); }, 3500); // auto-stop 3.5s
@@ -693,15 +770,70 @@ document.getElementById('mode-universal').onclick=()=>{
   usePersonal=false;
   document.getElementById('mode-universal').classList.add('active');
   document.getElementById('mode-personal').classList.remove('active');
-  stateEl.textContent='已切换到通用模型';
+  stateEl.textContent=t('p.switched.universal');
 };
 document.getElementById('mode-personal').onclick=()=>{
   if(!personalModel) return;
   usePersonal=true;
   document.getElementById('mode-personal').classList.add('active');
   document.getElementById('mode-universal').classList.remove('active');
-  stateEl.textContent='已切换到你家猫专属模型';
+  stateEl.textContent=t('p.switched.personal');
 };
+/* ---------- share card: render verdict to a canvas, download / Web-Share ---------- */
+let lastShare=null; // {emoji,label,pct,line,personal}
+function shareCard(top, label, pct){
+  lastShare={emoji:LABELS[top.c]?LABELS[top.c].emoji:'🤔', label, pct,
+    personal: usePersonal && !!personalModel};
+  const c=document.createElement('canvas'); c.width=1000; c.height=525;
+  const x=c.getContext('2d');
+  // warm paper background
+  x.fillStyle='#faf7f2'; x.fillRect(0,0,1000,525);
+  x.strokeStyle='#e6dfd3'; x.lineWidth=2; x.strokeRect(24,24,952,477);
+  // accent bar
+  x.fillStyle='#d96a2b'; x.fillRect(24,24,8,477);
+  // brand
+  x.fillStyle='#8a8175'; x.font='500 22px Georgia, serif';
+  x.fillText(t('share.brand'), 64, 84);
+  x.fillStyle='#d96a2b'; x.font='700 15px Georgia, serif';
+  x.fillText('MEOWSCOPE.GITHUB.IO', 64, 112);
+  // emoji
+  x.font='120px serif'; x.fillText(lastShare.emoji, 64, 260);
+  // verdict
+  x.fillStyle='#2b2620'; x.font='700 44px Georgia, serif';
+  x.fillText(t('share.verdict'), 64, 340);
+  x.fillStyle='#d96a2b'; x.font='800 72px Georgia, serif';
+  const vt=`${label} · ${pct}%`;
+  x.fillText(vt, 64, 424);
+  if(lastShare.personal){
+    x.fillStyle='#3d7a4e'; x.font='500 22px Georgia, serif';
+    x.fillText('· '+t('share.personal'), 64, 462);
+  }
+  // watermark qr-ish: just repo url bottom right
+  x.fillStyle='#8a8175'; x.font='400 20px Georgia, serif';
+  x.textAlign='right';
+  x.fillText('github.com/88lin/meowscope', 936, 468);
+  x.textAlign='left';
+  c.toBlob(async (blob)=>{
+    const file=new File([blob],'meowscope.png',{type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:'MeowScope'}); return; }catch(e){}
+    }
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='meowscope.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  },'image/png');
+}
+
+/* ---------- language toggle ---------- */
+document.getElementById('lang-btn').onclick=()=>{
+  window.__i18n.LANG = window.__i18n.LANG==='zh' ? 'en' : 'zh';
+};
+
+/* ---------- PWA: register service worker for offline install ---------- */
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
 // test hooks (used by automated e2e; harmless in production)
 window.__ms={decodeToBuffer, extractFeatures, extractF0Stats, predict, predictPersonal:()=>predictPersonal, trainPersonal, pSamples:()=>pSamples, lsSave, pRender,
   get usePersonal(){return usePersonal;}, set usePersonal(v){usePersonal=v;},
