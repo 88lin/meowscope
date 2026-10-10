@@ -25,21 +25,7 @@
     background:var(--bg); color:var(--ink);
     font-family:"Source Han Serif SC","Noto Serif SC","Songti SC",Georgia,serif;
     line-height:1.75;
-    position:relative;
   }
-  /* soft animated aurora blobs (Color4Bg vibe) — fixed, behind content, no repaint of text */
-  body::before, body::after{
-    content:""; position:fixed; z-index:-1; border-radius:50%;
-    filter:blur(90px); opacity:.35; pointer-events:none;
-  }
-  body::before{ width:52vw; height:52vw; left:-12vw; top:-14vw;
-    background:radial-gradient(circle at 35% 35%, #f6c89a, #f2a65e 55%, transparent 75%);
-    animation:drift1 26s ease-in-out infinite alternate; }
-  body::after{ width:46vw; height:46vw; right:-14vw; bottom:-10vw;
-    background:radial-gradient(circle at 60% 60%, #cfe3d2, #9cc4a8 55%, transparent 78%);
-    animation:drift2 32s ease-in-out infinite alternate; }
-  @keyframes drift1{ to{ transform:translate(9vw,7vh) scale(1.12); } }
-  @keyframes drift2{ to{ transform:translate(-8vw,-6vh) scale(1.08); } }
   ::selection{background:var(--accent-soft)}
   .wrap{max-width:880px;margin:0 auto;padding:0 24px}
   a{color:var(--accent);text-decoration:none}
@@ -76,13 +62,6 @@
     letter-spacing:.08em;transition:transform .08s ease, opacity .15s, background .15s, border-color .15s;
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;min-height:44px;
   }
-  button{position:relative;overflow:hidden}
-  button::after{ /* sheen sweep on hover (uiverse vibe) */
-    content:""; position:absolute; inset:0; transform:translateX(-120%) skewX(-18deg);
-    background:linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
-    transition:transform .55s ease; pointer-events:none;
-  }
-  button:hover:not(:disabled)::after{transform:translateX(120%) skewX(-18deg)}
   button:hover:not(:disabled){background:#443c32;border-color:#443c32}
   button:active{transform:translateY(1px)}
   button.ghost{background:transparent;color:var(--ink)}
@@ -114,9 +93,9 @@
   .demos{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
   .demos .lbl{font-size:.78rem;color:var(--muted);letter-spacing:.05em}
   .demo-btn{
-    font-family:inherit;font-size:.8rem;padding:6px 12px;border-radius:99px;
+    font-family:inherit;font-size:.82rem;padding:10px 16px;border-radius:99px;
     border:1px dashed var(--line);background:transparent;color:#6b6357;cursor:pointer;
-    letter-spacing:.05em;min-height:0;
+    letter-spacing:.05em;min-height:44px;
   }
   .demo-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   .demo-btn.playing{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
@@ -133,23 +112,28 @@
   .p-controls select{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#fff}
   .p-status{margin-top:12px;font-size:.86rem;color:var(--muted)}
   .mode-tag{margin-left:auto;font-size:.72rem;border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:3px 10px;white-space:nowrap}
-  .lang-btn{font-size:.8rem;padding:6px 14px;border-radius:999px;min-height:0;border:1px solid var(--line);letter-spacing:.05em}
+  .lang-btn{font-size:.8rem;padding:8px 16px;border-radius:999px;min-height:44px;border:1px solid var(--line);letter-spacing:.05em}
+  @media (max-width:480px){
+    .logo b{font-size:1.05rem}
+    .logo span{display:none}
+    .gh-link{font-size:.8rem;display:inline-flex;align-items:center;min-height:44px;padding:0 2px}
+    .topbar{gap:8px}
+    .topbar > span:last-child{margin-left:auto;gap:8px}
+    .lang-btn{padding:8px 12px}
+  }
+  @media (max-width:360px){
+    .gh-link .gh-word{display:none} /* icon only */
+    .logo span{display:none}
+  }
 
   /* ---------- sections ---------- */
   section{padding:56px 0;border-bottom:1px solid var(--line)}
-  /* scroll reveal (60fps.design vibe) */
-  .reveal{opacity:0; transform:translateY(26px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
-  .reveal.in{opacity:1; transform:none}
-  .cards .card.reveal:nth-child(2){transition-delay:.08s}
-  .cards .card.reveal:nth-child(3){transition-delay:.16s}
-  .cards .card.reveal:nth-child(4){transition-delay:.24s}
   section h2{font-size:1.3rem;margin-bottom:20px;letter-spacing:.04em}
   section h2 small{font-size:.8rem;color:var(--muted);letter-spacing:.2em;margin-left:10px}
   p.body{color:#4c463d;max-width:700px}
 
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:24px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;transition:box-shadow .2s ease, transform .2s ease}
-  .card:hover{box-shadow:0 6px 20px rgba(60,50,40,.08);transform:translateY(-2px)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
   .card h3{font-size:.95rem;margin-bottom:8px}
   .card h3 .tag{font-size:.7rem;color:var(--muted);letter-spacing:.15em;margin-right:6px}
   .card p{font-size:.86rem;color:#6b6357}
@@ -172,6 +156,14 @@
     .controls{gap:8px}
     .controls button{flex:1 1 40%;padding:10px 12px;font-size:.86rem}
     section{padding:44px 0}
+    /* personalization: tidy 2-col grid */
+    .personal-box{padding:16px 14px}
+    .p-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .p-controls select{grid-column:1 / -1;min-height:44px}
+    .p-controls button{min-height:44px;padding:10px 8px;font-size:.86rem}
+    .p-controls #p-reset{grid-column:1 / -1}
+    .p-mode{flex-wrap:wrap}
+    .mode-btn{min-height:44px}
     .verdict{flex-direction:row;gap:12px;padding:14px 16px}
     .verdict .emoji{font-size:1.6rem}
     canvas#wave{height:64px}
@@ -186,7 +178,6 @@
   @media (prefers-reduced-motion: reduce){
     .card,.bar-fill,button{transition:none!important;animation:none!important}
     .rec-dot{animation:none}
-    body::before,body::after{animation:none}
   }
 </style>
 </head>
@@ -195,7 +186,7 @@
 <header>
   <div class="wrap topbar">
     <div class="logo"><b>MeowScope</b><span>MEOWSCOPE</span></div>
-    <span style="display:flex;gap:14px;align-items:center"><button id="lang-btn" class="ghost lang-btn"></button><a class="gh-link" href="https://github.com/88lin/meowscope" target="_blank" rel="noopener">GitHub ↗</a></span>
+    <span style="display:flex;gap:14px;align-items:center"><button id="lang-btn" class="ghost lang-btn"></button><a class="gh-link" href="https://github.com/88lin/meowscope" target="_blank" rel="noopener" aria-label="GitHub"><span class="gh-word">GitHub</span> ↗</a></span>
   </div>
 </header>
 
@@ -242,7 +233,7 @@
     </div>
   </div>
 
-  <section id="personal" class="reveal">
+  <section id="personal">
     <h2><span data-i18n="p.h2"></span> <small data-i18n="p.h2s"></small></h2>
     <p class="body" data-i18n="p.intro"></p>
     <div class="personal-box">
@@ -265,7 +256,7 @@
     </div>
   </section>
 
-  <section id="how" class="reveal">
+  <section id="how">
     <h2><span data-i18n="how.h2"></span> <small data-i18n="how.h2s"></small></h2>
     <p class="body" data-i18n="how.intro"></p>
     <div class="cards">
@@ -287,7 +278,7 @@
     </div>
   </section>
 
-  <section id="honest" class="reveal">
+  <section id="honest">
     <h2><span data-i18n="h.h2"></span> <small data-i18n="h.h2s"></small></h2>
     <p class="body" data-i18n="h.intro"></p>
     <table class="metrics" id="metrics-table"></table>
@@ -297,7 +288,7 @@
     </div>
   </section>
 
-  <section id="tech" class="reveal">
+  <section id="tech">
     <h2><span data-i18n="t.h2"></span> <small data-i18n="t.h2s"></small></h2>
     <p class="body" data-i18n="t.intro"></p>
     <div class="cards">
@@ -308,7 +299,7 @@
     <p class="body" style="margin-top:18px" data-i18n="t.footnote"></p>
   </section>
 
-  <section id="science" class="reveal">
+  <section id="science">
     <h2><span data-i18n="s.h2"></span> <small data-i18n="s.h2s"></small></h2>
     <p class="body" data-i18n="s.intro"></p>
     <div class="cards">
@@ -320,7 +311,7 @@
     <p class="note" style="margin-top:14px" data-i18n="s.footnote"></p>
   </section>
 
-  <section id="limits" class="reveal">
+  <section id="limits">
     <h2><span data-i18n="l.h2"></span> <small data-i18n="l.h2s"></small></h2>
     <p class="body" data-i18n="l.intro"></p>
     <div class="cards">
@@ -330,7 +321,7 @@
     </div>
   </section>
 
-  <section id="oss" class="reveal">
+  <section id="oss">
     <h2><span data-i18n="o.h2"></span> <small data-i18n="o.h2s"></small></h2>
     <p class="body" data-i18n="o.intro"></p>
     <div class="cards">
@@ -349,25 +340,6 @@
   </div>
 </footer>
 
-<script>
-/* scroll reveal — 60fps.design vibe; no-op under reduced motion */
-(function(){
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches){
-    document.addEventListener('DOMContentLoaded',()=>{
-      document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));
-    });
-    return;
-  }
-  const io=new IntersectionObserver(es=>es.forEach(e=>{
-    if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
-  }),{threshold:.12});
-  document.addEventListener('DOMContentLoaded',()=>{
-    document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
-    document.querySelectorAll('.cards').forEach(c=>c.querySelectorAll(':scope > .card').forEach(el=>el.classList.add('reveal')));
-    document.querySelectorAll('.cards .card.reveal').forEach(el=>io.observe(el));
-  });
-})();
-</script>
 <script type="module">
 import { extractFeatures, extractF0Stats } from './features.js';
 import { DEMOS } from './demos.js';
