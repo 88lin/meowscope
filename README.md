@@ -78,6 +78,10 @@ scripts/
 - 数据集：**CatMeows** — Schork & Petry 等，Zenodo [4008297](https://zenodo.org/records/4008297)（CC-BY-NC，仅供研究）。
 - 相关工作：Ntalampiras（猫叫情境识别）、Pandeya & Lee（猫叫分类）、Meow-Omni 1（多模态动物意图理解，2025）。
 
+## 教它认识你家猫（个性化）
+
+除了通用模型，页面支持**纯本地个性化训练**：三个情境各录 3 段自家猫叫声，浏览器内用 softmax 回归训练专属分类头（复用同一条 70 维特征管线），存 localStorage，零上传。训练后可一键在「通用 / 专属」模型间切换。
+
 ## License
 
 代码 MIT。数据集版权归 CatMeows 作者（CC-BY-NC）。
