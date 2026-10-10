@@ -71,9 +71,11 @@
     display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:10px;
     background:var(--ok-soft);border:1px solid #cfe0d4;
   }
+  .verdict.unsure{background:#fdf3e2;border-color:#ecd9b7}
   .verdict .emoji{font-size:2rem;line-height:1}
   .verdict .text b{display:block;font-size:1.05rem}
   .verdict .text span{font-size:.86rem;color:#4c5f50}
+  .verdict.unsure .text span{color:#7a6a4f}
   .bars{margin-top:16px;display:grid;gap:8px}
   .bar-row{display:grid;grid-template-columns:110px 1fr 48px;align-items:center;gap:12px;font-size:.85rem}
   .bar-row .name{color:#5c554b}
@@ -81,6 +83,15 @@
   .bar-track{height:8px;background:#efe9dd;border-radius:99px;overflow:hidden}
   .bar-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .7s cubic-bezier(.2,.8,.2,1)}
   .speak-btn{margin-top:16px}
+  .demos{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .demos .lbl{font-size:.78rem;color:var(--muted);letter-spacing:.05em}
+  .demo-btn{
+    font-family:inherit;font-size:.8rem;padding:6px 12px;border-radius:99px;
+    border:1px dashed var(--line);background:transparent;color:#6b6357;cursor:pointer;
+    letter-spacing:.05em;min-height:0;
+  }
+  .demo-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .demo-btn.playing{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 
   /* ---------- sections ---------- */
   section{padding:56px 0;border-bottom:1px solid var(--line)}
@@ -144,7 +155,7 @@
   <div class="hero">
     <div class="kicker">纯浏览器端 · 零上传 · 开源</div>
     <h1>你的猫在说什么？<br><em>录音，让 AI 替它开口。</em></h1>
-    <p class="lead">基于 CatMeows 学术数据集训练的猫叫情境分类器，特征提取与推理全部在浏览器本地完成——你的录音不会离开这台设备。</p>
+    <p class="lead">基于 CatMeows 学术数据集训练的猫叫情境分类器，特征提取与推理全部在浏览器本地完成——你的录音不会离开这台设备。它认得出<strong>陌生猫</strong>约六成的喵（比人类强，见下方数据），但听不出你的猫「爱不爱你」——先点下面的示例感受一下它听懂什么。</p>
   </div>
 
   <div class="meter-card">
@@ -160,6 +171,12 @@
       <input type="file" id="file" accept="audio/*">
     </div>
     <div class="hint">建议 1–5 秒、无背景音乐；浏览器录音需授权麦克风。支持 mp3 / wav / m4a / ogg 等常见格式。</div>
+    <div class="demos" id="demos">
+      <span class="lbl">先听听数据集里的真猫叫：</span>
+      <button class="demo-btn" data-i="0">🪮 刷毛示例</button>
+      <button class="demo-btn" data-i="1">🍚 等饭示例</button>
+      <button class="demo-btn" data-i="2">🚪 隔离示例</button>
+    </div>
 
     <div id="result">
       <div class="verdict">
@@ -257,6 +274,7 @@
 
 <script type="module">
 import { extractFeatures, extractF0Stats } from './features.js';
+import { DEMOS } from './demos.js';
 import forestData from './forest.json' with { type: 'json' };
 import metrics from './metrics.json' with { type: 'json' };
 
@@ -387,14 +405,12 @@ function predict(feat){
   return forestData.classes.map((c,i)=>({c, p:sums[i]/tot})).sort((a,b)=>b.p-a.p);
 }
 
-function showResult(preds, durSec){
+function showResult(preds, durSec, rms){
   resultEl.style.display='block';
-  const top=preds[0], L=LABELS[top.c];
-  document.getElementById('v-emoji').textContent=L.emoji;
-  const conf=(top.p*100).toFixed(0);
-  document.getElementById('v-main').textContent=`听起来像：${L.zh}（${conf}%）`;
-  document.getElementById('v-sub').textContent = top.p>0.55 ? L.line
-    : '猫叫的个体差异很大，这个判断仅供参考——它可能只是想说点别的。';
+  const top=preds[0];
+  const verdict=document.querySelector('.verdict');
+  const barsWrap=document.getElementById('bars');
+  const btn=document.getElementById('btn-speak');
   barsEl.innerHTML = preds.map(p=>`
     <div class="bar-row">
       <span class="name">${LABELS[p.c].emoji} ${LABELS[p.c].zh}</span>
@@ -404,8 +420,25 @@ function showResult(preds, durSec){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     barsEl.querySelectorAll('.bar-fill').forEach((el,i)=>el.style.width=(preds[i].p*100)+'%');
   }));
-  // speak button
-  const btn=document.getElementById('btn-speak');
+
+  // honesty gate: low-confidence top class + near-silence => refuse a fake verdict
+  if (top.p < 0.50) {
+    verdict.className='verdict unsure';
+    document.getElementById('v-emoji').textContent='🤔';
+    document.getElementById('v-main').textContent='这段声音我不太确定';
+    document.getElementById('v-sub').textContent=
+      '没有哪个情境拿到过半票数——它可能不是猫叫（人声、音乐、环境噪声都会这样），也可能是一只模型没学过的猫在用自己的口音说话。上面的三行只是模型的原始倾向，别当结论。';
+    btn.style.display='none';
+    stateEl.textContent=`分析完成 · ${durSec.toFixed(1)} 秒 · 置信度不足，仅供参考`;
+    return;
+  }
+  const L=LABELS[top.c];
+  verdict.className='verdict';
+  document.getElementById('v-emoji').textContent=L.emoji;
+  document.getElementById('v-main').textContent=`听起来像：${L.zh}（${(top.p*100).toFixed(0)}%）`;
+  document.getElementById('v-sub').textContent = top.p>0.55 ? L.line
+    : '有一定把握，但猫叫的个体差异很大——它也可能想说点别的。';
+  btn.style.display='';
   btn.onclick=()=>{
     const u=new SpeechSynthesisUtterance(L.line);
     u.lang='zh-CN'; u.rate=1.05; u.pitch=1.15;
@@ -420,13 +453,28 @@ async function analyze(blob, label){
     resultEl.style.display='none';
     const data=await decodeToBuffer(blob);
     if(data.length<22050*0.3){ stateEl.textContent='音频太短了，录长一点（至少 1 秒）'; drawIdle(); return; }
+    // energy gate: near-silence
+    let e=0; for(let i=0;i<data.length;i++) e+=data[i]*data[i];
+    const rms=Math.sqrt(e/data.length);
     drawStatic(data, data.length/22050);
+    if (rms < 0.003) {
+      resultEl.style.display='block';
+      const verdict=document.querySelector('.verdict');
+      verdict.className='verdict unsure';
+      document.getElementById('v-emoji').textContent='🔇';
+      document.getElementById('v-main').textContent='几乎没有声音';
+      document.getElementById('v-sub').textContent='这段音频接近静音——离麦克风近一点，或者调高音量再试。';
+      document.getElementById('btn-speak').style.display='none';
+      barsEl.innerHTML='';
+      stateEl.textContent='没有检测到有效声音';
+      return;
+    }
     const t0=performance.now();
     const feat=extractFeatures(Float64Array.from(data));
     feat.push(...extractF0Stats(Float64Array.from(data)));
     const preds=predict(feat);
     console.log('inference', (performance.now()-t0).toFixed(0)+'ms');
-    showResult(preds, data.length/22050);
+    showResult(preds, data.length/22050, rms);
   }catch(e){
     console.error(e);
     stateEl.textContent='无法解析这段音频，试试别的文件或重新录音';
@@ -465,6 +513,24 @@ btnStop.onclick=()=>{ if(mediaRec&&mediaRec.state==='recording')mediaRec.stop();
 const fileInput=document.getElementById('file');
 document.getElementById('btn-upload').onclick=()=>fileInput.click();
 fileInput.onchange=()=>{ if(fileInput.files[0]) analyze(fileInput.files[0],'file'); fileInput.value=''; };
+
+/* ---------- demo meows ---------- */
+let demoAudio=null, demoBtnEl=null;
+document.querySelectorAll('.demo-btn').forEach(btn=>{
+  btn.onclick=async()=>{
+    const i=+btn.dataset.i, d=DEMOS[i];
+    if(demoAudio){ demoAudio.pause(); }
+    if(demoBtnEl){ demoBtnEl.classList.remove('playing'); demoBtnEl.textContent=demoBtnEl.textContent.replace(' ⏸',''); }
+    if(demoBtnEl===btn){ demoBtnEl=null; demoAudio=null; return; }
+    demoBtnEl=btn; btn.classList.add('playing'); btn.textContent+=' ⏸';
+    stateEl.textContent=`播放示例：${d.label}（${d.file}）`;
+    const ab=await (await fetch(d.data)).arrayBuffer();
+    demoAudio=new Audio(d.data);
+    demoAudio.onended=()=>{ btn.classList.remove('playing'); btn.textContent=btn.textContent.replace(' ⏸',''); stateEl.textContent='就绪'; if(demoBtnEl===btn)demoBtnEl=null; };
+    analyze(await (await fetch(d.data)).blob(), 'demo');
+    demoAudio.play();
+  };
+});
 </script>
 </body>
 </html>
