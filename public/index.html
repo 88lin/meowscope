@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>喵语通 · MeowScope — 在浏览器里听懂猫在说什么</title>
+<meta name="description" content="纯浏览器端的猫叫声情境分类器：录音或上传，本地 AI 推理，无任何数据上传。">
+<style>
+  :root{
+    --bg:#faf7f2; --ink:#2b2620; --muted:#8a8175; --line:#e6dfd3;
+    --card:#ffffff; --accent:#d96a2b; --accent-soft:#f7e3d3;
+    --ok:#3d7a4e; --ok-soft:#e2efe5; --warn:#b3541e;
+    font-size:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Source Han Serif SC","Noto Serif SC","Songti SC",Georgia,serif;
+    line-height:1.75;
+  }
+  ::selection{background:var(--accent-soft)}
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---------- header ---------- */
+  header{border-bottom:1px solid var(--line);background:var(--bg)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+  .logo{display:flex;align-items:baseline;gap:10px}
+  .logo b{font-size:1.25rem;letter-spacing:.12em}
+  .logo span{font-size:.8rem;color:var(--muted);letter-spacing:.05em}
+  .gh-link{font-size:.85rem;color:var(--muted)}
+  .gh-link:hover{color:var(--accent);text-decoration:none}
+
+  .hero{padding:64px 0 48px}
+  .kicker{font-size:.78rem;letter-spacing:.35em;color:var(--accent);margin-bottom:14px}
+  h1{font-size:clamp(1.9rem,4.5vw,2.8rem);line-height:1.3;font-weight:700;letter-spacing:.02em}
+  h1 em{font-style:normal;color:var(--accent)}
+  .hero p.lead{margin-top:18px;color:#5c554b;max-width:640px;font-size:1.02rem}
+
+  /* ---------- meter ---------- */
+  .meter-card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:26px 28px;margin:34px 0 0;box-shadow:0 1px 3px rgba(60,50,40,.05);
+  }
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .meter-head h2{font-size:1.05rem;letter-spacing:.05em}
+  .meter-head .state{font-size:.8rem;color:var(--muted)}
+  canvas#wave{width:100%;height:84px;display:block;border-radius:8px;background:#f4efe6}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;align-items:center}
+  button{
+    font-family:inherit;font-size:.92rem;padding:10px 22px;border-radius:8px;
+    border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer;
+    letter-spacing:.08em;transition:transform .08s ease, opacity .15s;
+  }
+  button:active{transform:translateY(1px)}
+  button.ghost{background:transparent;color:var(--ink)}
+  button.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .rec-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:8px;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.15}}
+  input[type=file]{display:none}
+  .hint{font-size:.8rem;color:var(--muted);margin-top:10px}
+
+  /* ---------- results ---------- */
+  #result{margin-top:22px;display:none}
+  .verdict{
+    display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:10px;
+    background:var(--ok-soft);border:1px solid #cfe0d4;
+  }
+  .verdict .emoji{font-size:2rem;line-height:1}
+  .verdict .text b{display:block;font-size:1.05rem}
+  .verdict .text span{font-size:.86rem;color:#4c5f50}
+  .bars{margin-top:16px;display:grid;gap:8px}
+  .bar-row{display:grid;grid-template-columns:110px 1fr 48px;align-items:center;gap:12px;font-size:.85rem}
+  .bar-row .name{color:#5c554b}
+  .bar-row .pct{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+  .bar-track{height:8px;background:#efe9dd;border-radius:99px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  .speak-btn{margin-top:16px}
+
+  /* ---------- sections ---------- */
+  section{padding:56px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:1.3rem;margin-bottom:20px;letter-spacing:.04em}
+  section h2 small{font-size:.8rem;color:var(--muted);letter-spacing:.2em;margin-left:10px}
+  p.body{color:#4c463d;max-width:700px}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .card h3{font-size:.95rem;margin-bottom:8px}
+  .card h3 .tag{font-size:.7rem;color:var(--muted);letter-spacing:.15em;margin-right:6px}
+  .card p{font-size:.86rem;color:#6b6357}
+  .card .prob{font-size:.78rem;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
+
+  table.metrics{width:100%;border-collapse:collapse;margin-top:20px;font-size:.88rem}
+  table.metrics th,table.metrics td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}
+  table.metrics th{color:var(--muted);font-weight:500;font-size:.8rem;letter-spacing:.06em}
+  table.metrics td.num{font-variant-numeric:tabular-nums}
+  .note{font-size:.82rem;color:var(--muted);margin-top:12px}
+
+  /* ---------- footer ---------- */
+  footer{padding:36px 0 48px;font-size:.82rem;color:var(--muted)}
+  footer .row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+  @media (max-width:600px){
+    .hero{padding:44px 0 36px}
+    .meter-card{padding:20px}
+    .bar-row{grid-template-columns:90px 1fr 44px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap topbar">
+    <div class="logo"><b>喵语通</b><span>MEOWSCOPE</span></div>
+    <a class="gh-link" href="https://github.com/88lin/meowscope" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="hero">
+    <div class="kicker">纯浏览器端 · 零上传 · 开源</div>
+    <h1>你的猫在说什么？<br><em>录音，让 AI 替它开口。</em></h1>
+    <p class="lead">基于 CatMeows 学术数据集训练的猫叫情境分类器，特征提取与推理全部在浏览器本地完成——你的录音不会离开这台设备。</p>
+  </div>
+
+  <div class="meter-card">
+    <div class="meter-head">
+      <h2>现场翻译</h2>
+      <span class="state" id="state">就绪</span>
+    </div>
+    <canvas id="wave" width="800" height="84"></canvas>
+    <div class="controls">
+      <button id="btn-record">录音</button>
+      <button id="btn-stop" class="ghost" disabled>停止</button>
+      <button id="btn-upload" class="ghost">上传音频文件</button>
+      <input type="file" id="file" accept="audio/*">
+    </div>
+    <div class="hint">建议 1–5 秒、无背景音乐；浏览器录音需授权麦克风。支持 mp3 / wav / m4a / ogg 等常见格式。</div>
+
+    <div id="result">
+      <div class="verdict">
+        <span class="emoji" id="v-emoji">🐱</span>
+        <span class="text">
+          <b id="v-main">—</b>
+          <span id="v-sub">—</span>
+        </span>
+      </div>
+      <div class="bars" id="bars"></div>
+      <button id="btn-speak" class="ghost speak-btn">🔊 用猫的口吻说出来</button>
+    </div>
+  </div>
+
+  <section id="how">
+    <h2>它听得懂什么 <small>THREE CONTEXTS</small></h2>
+    <p class="body">模型区分的是 CatMeows 数据集里的三种发声情境。这是目前学术界少有的、有严格标注的公开猫叫数据集——先承认：喵语没有百科全书，AI 只能听情境，不能读心。</p>
+    <div class="cards">
+      <div class="card">
+        <h3><span class="tag">B</span>被刷毛</h3>
+        <p>主人拿着梳子刷毛时发出的喵。常见为短促、音调平缓的抗议或容忍声。</p>
+        <div class="prob">置信度参考：per_class.brushing</div>
+      </div>
+      <div class="card">
+        <h3><span class="tag">F</span>等饭</h3>
+        <p>站在食盆前等开饭的喵。节奏往往急促重复，是最有辨识度的类别。</p>
+        <div class="prob">置信度参考：per_class.waiting_for_food</div>
+      </div>
+      <div class="card">
+        <h3><span class="tag">I</span>被隔离</h3>
+        <p>被独自留在陌生环境中的喵。鸣叫更长、音更高， distress 特征明显。</p>
+        <div class="prob">置信度参考：per_class.isolation</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="honest">
+    <h2>诚实的数据 <small>REAL NUMBERS, NO HYPE</small></h2>
+    <p class="body">很多宠物翻译产品宣传 90%+ 准确率，但那是「同一只猫的录音再喂回去」的成绩。我们按<strong>猫为单位</strong>划分训练/测试（模型从没听过测试集里那只猫的声音），这才是你家的猫第一次叫时的真实水平：</p>
+    <table class="metrics" id="metrics-table"></table>
+    <p class="note">随机猜 = 33%。按猫分组 5 折交叉验证与「留一只猫出来」验证给出接近的数字，说明没有数据泄漏。识别错误时会自信地错——所以请把输出当作线索，不是诊断。</p>
+  </section>
+
+  <section id="tech">
+    <h2>原理 <small>HOW IT WORKS</small></h2>
+    <p class="body">整条链路是教科书式的音频分类，没有黑魔法：</p>
+    <div class="cards">
+      <div class="card"><h3><span class="tag">01</span>特征</h3><p>20 维 MFCC + 一阶差分 + 谱心质 / 谱滚降 / 过零率 / RMS 统计，共 67 维。与 Python librosa 逐位对拍验证（误差 &lt; 1e-6）。</p></div>
+      <div class="card"><h3><span class="tag">02</span>模型</h3><p>随机森林（150 棵、深度 6），在小样本（440 条）下比深度网络更稳。导出为纯 JSON 决策树在浏览器执行。</p></div>
+      <div class="card"><h3><span class="tag">03</span>隐私</h3><p>音频解码、重采样、特征、推理全部在本页面完成。没有服务器、没有 cookie、没有统计脚本。</p></div>
+    </div>
+  </section>
+
+  <section id="limits">
+    <h2>边界与争议 <small>WHAT WE DON'T CLAIM</small></h2>
+    <p class="body">杠精时间——也是我们最想认真回应的部分：</p>
+    <div class="cards">
+      <div class="card"><h3>猫叫不是语言</h3><p>同一声「喵」在不同猫、不同场合含义可以完全不同（学界称为语义混叠）。本项目只做「情境分类」，不做「翻译句子」。</p></div>
+      <div class="card"><h3>个体差异大</h3><p>模型按猫泛化时准确率约 60%。对品种、年龄、口音敏感。越用越准的产品需要积累你家猫的数据——这正是配套 App 的方向。</p></div>
+      <div class="card"><h3>狗和仓鼠？</h3><p>不做。仓鼠的 ultrasonic vocalization 在 20–100kHz，人耳和普通麦克风都收不到，任何「仓鼠翻译器」都是营销。</p></div>
+    </div>
+  </section>
+
+  <section id="oss">
+    <h2>开源与复现 <small>MIT LICENSED</small></h2>
+    <p class="body">完整训练与验证代码、数据下载脚本、JS/Python 特征对拍测试都在仓库里。你可以自己重新训练并替换模型：</p>
+    <div class="cards">
+      <div class="card"><h3><span class="tag">STEP</span>1 · 数据</h3><p>CatMeows（Zenodo, CC-BY-NC）：21 只猫、440 段喵叫，覆盖缅因猫与欧洲短毛猫。</p></div>
+      <div class="card"><h3><span class="tag">STEP</span>2 · 训练</h3><p><code style="font-size:.8rem">pip install librosa scikit-learn && python scripts/train.py</code> 输出模型与交叉验证指标。</p></div>
+      <div class="card"><h3><span class="tag">STEP</span>3 · 导出</h3><p><code style="font-size:.8rem">python scripts/export_js.py</code> 把森林转成 JSON，<code style="font-size:.8rem">node scripts/test_parity.cjs</code> 验证 JS 特征与 Python 一致。</p></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap row">
+    <span>喵语通 MeowScope · 数据集 CatMeows (Schork & Petry, Zenodo 4008297) · 仅供研究与娱乐</span>
+    <span>MIT License</span>
+  </div>
+</footer>
+
+<script type="module">
+import { extractFeatures } from './features.js';
+import forestData from './forest.json' with { type: 'json' };
+import metrics from './metrics.json' with { type: 'json' };
+
+/* ---------- labels & copy ---------- */
+const LABELS = {
+  brushing:        { zh: '被刷毛',  emoji: '🪮', line: '「梳毛可以，但别刷太久，两下就够。」' },
+  waiting_for_food:{ zh: '在等饭',  emoji: '🍚', line: '「铲屎的，饭碗空了三秒钟了，效率呢？！」' },
+  isolation:       { zh: '被隔离',  emoji: '🚪', line: '「这个房间很陌生，开门！本喵要回家！」' },
+};
+const stateEl = document.getElementById('state');
+const resultEl = document.getElementById('result');
+const barsEl = document.getElementById('bars');
+
+/* ---------- metrics table ---------- */
+{
+  const t = document.getElementById('metrics-table');
+  const pc = metrics.per_class;
+  t.innerHTML = `
+    <tr><th>验证方式</th><th>准确率</th><th>说明</th></tr>
+    <tr><td>按猫分组 5 折交叉验证</td><td class="num"><b>${(metrics.grouped_5fold_cv_accuracy*100).toFixed(1)}%</b></td><td>训练与测试永远来自不同的猫</td></tr>
+    <tr><td>留一猫验证 (LOSO)</td><td class="num"><b>${(metrics.leave_one_cat_out_accuracy*100).toFixed(1)}%</b></td><td>每折只留一只猫当测试集</td></tr>
+    ${metrics.labels.map(l=>`<tr><td>· ${LABELS[l].zh}（单独召回）</td><td class="num">${(pc[l].recall*100).toFixed(0)}%</td><td>${l}</td></tr>`).join('')}`;
+  // fill the per-class prob references
+  document.querySelectorAll('.card .prob').forEach((el,i)=>{
+    const key = ['brushing','waiting_for_food','isolation'][i];
+    el.textContent = `按猫划分召回率 ${(pc[key].recall*100).toFixed(0)}%`;
+  });
+}
+
+/* ---------- waveform ---------- */
+const canvas = document.getElementById('wave');
+const ctx2d = canvas.getContext('2d');
+let liveAnalyser = null, rafId = null;
+function drawIdle(){
+  ctx2d.clearRect(0,0,canvas.width,canvas.height);
+  ctx2d.strokeStyle='#c9c0b0'; ctx2d.lineWidth=1.5;
+  ctx2d.beginPath(); ctx2d.moveTo(0,canvas.height/2); ctx2d.lineTo(canvas.width,canvas.height/2); ctx2d.stroke();
+}
+drawIdle();
+function drawLive(){
+  if(!liveAnalyser){ return; }
+  const N=liveAnalyser.frequencyBinCount, arr=new Uint8Array(N);
+  liveAnalyser.getByteTimeDomainData(arr);
+  ctx2d.clearRect(0,0,canvas.width,canvas.height);
+  ctx2d.strokeStyle='#d96a2b'; ctx2d.lineWidth=2; ctx2d.beginPath();
+  for(let i=0;i<canvas.width;i++){
+    const v=(arr[Math.floor(i/canvas.width*N)]-128)/128*canvas.height/2*0.9;
+    const y=canvas.height/2+v;
+    i?ctx2d.lineTo(i,y):ctx2d.moveTo(i,y);
+  }
+  ctx2d.stroke();
+  rafId=requestAnimationFrame(drawLive);
+}
+function drawStatic(buf, duration){
+  cancelAnimationFrame(rafId);
+  // min-max envelope
+  const W=canvas.width, block=Math.floor(buf.length/W);
+  ctx2d.clearRect(0,0,W,canvas.height);
+  ctx2d.fillStyle='#d96a2b';
+  for(let x=0;x<W;x++){
+    let mn=1,mx=-1;
+    for(let i=0;i<block;i+=8){const v=buf[x*block+i];if(v<mn)mn=v;if(v>mx)mx=v;}
+    const h=Math.max(2,(mx-mn)*canvas.height*0.48);
+    ctx2d.fillRect(x,(canvas.height-h)/2,1,h);
+  }
+}
+
+/* ---------- decode any audio to 22.05k mono Float32 ---------- */
+// For PCM wav we parse + linear-resample ourselves, exactly matching the training loader
+// (scripts/train.py) so uploads get the same treatment as training audio.
+function parseWavPCM(arrayBuffer){
+  const b=new DataView(arrayBuffer);
+  const str=(o,n)=>{let s='';for(let i=0;i<n;i++)s+=String.fromCharCode(b.getUint8(o+i));return s;};
+  if(str(0,4)!=='RIFF'||str(8,4)!=='WAVE') return null;
+  let off=12, fmt=null, dataOff=-1, dataLen=0;
+  while(off+8<=b.byteLength){
+    const id=str(off,4), size=b.getUint32(off+4,true);
+    if(id==='fmt ') fmt={audioFormat:b.getUint16(off+8,true),channels:b.getUint16(off+10,true),sampleRate:b.getUint32(off+12,true),bits:b.getUint16(off+22,true)};
+    if(id==='data'){dataOff=off+8;dataLen=Math.min(size,b.byteLength-off-8);}
+    off+=8+size+(size%2);
+  }
+  if(!fmt||dataOff<0||(fmt.audioFormat!==1&&fmt.audioFormat!==3)) return null;
+  const bytesPer=fmt.bits/8, n=Math.floor(dataLen/bytesPer/fmt.channels);
+  const y=new Float64Array(n);
+  for(let i=0;i<n;i++){
+    let v=0;
+    for(let c=0;c<fmt.channels;c++){
+      const o=dataOff+(i*fmt.channels+c)*bytesPer;
+      v += fmt.bits===16?b.getInt16(o,true)/32768 : fmt.bits===32?(fmt.audioFormat===3?b.getFloat32(o,true):b.getInt32(o,true)/2147483648):0;
+    }
+    y[i]=v/fmt.channels;
+  }
+  return {y, rate:fmt.sampleRate};
+}
+function linearResample(y, from, to){
+  if(from===to) return y;
+  const n=Math.floor(y.length*to/from), out=new Float64Array(n);
+  for(let i=0;i<n;i++){const p=i*from/to,i0=Math.floor(p);out[i]=y[i0]+(y[Math.min(i0+1,y.length-1)]-y[i0])*(p-i0);}
+  return out;
+}
+async function decodeToBuffer(blob){
+  const arrayBuffer = await blob.arrayBuffer();
+  // fast path: PCM wav — exact parity with training
+  const wav = parseWavPCM(arrayBuffer);
+  if(wav) return linearResample(wav.y, wav.rate, 22050);
+  // otherwise use the Web Audio decoder (mic recordings / mp3 / webm …)
+  const acx = new (window.AudioContext||window.webkitAudioContext)(); // decode at native rate, then resample like the training pipeline
+  const audio = await acx.decodeAudioData(arrayBuffer);
+  let data = audio.getChannelData(0);
+  if(audio.sampleRate!==22050){
+    const ratio=22050/audio.sampleRate, n=Math.floor(data.length*ratio), out=new Float32Array(n);
+    for(let i=0;i<n;i++){const p=i/ratio,i0=Math.floor(p);out[i]=data[i0]+(data[Math.min(i0+1,data.length-1)]-data[i0])*(p-i0);}
+    data=out;
+  }
+  acx.close();
+  return data;
+}
+
+/* ---------- inference ---------- */
+function predict(feat){
+  const sums=[0,0,0];
+  for(const tree of forestData.trees){
+    let n=tree;
+    while(n.v===undefined) n = feat[n.f] <= n.t ? n.l : n.r;
+    for(let i=0;i<3;i++) sums[i]+=n.v[i];
+  }
+  const tot=sums.reduce((a,b)=>a+b,0);
+  return forestData.classes.map((c,i)=>({c, p:sums[i]/tot})).sort((a,b)=>b.p-a.p);
+}
+
+function showResult(preds, durSec){
+  resultEl.style.display='block';
+  const top=preds[0], L=LABELS[top.c];
+  document.getElementById('v-emoji').textContent=L.emoji;
+  const conf=(top.p*100).toFixed(0);
+  document.getElementById('v-main').textContent=`听起来像：${L.zh}（${conf}%）`;
+  document.getElementById('v-sub').textContent = top.p>0.55 ? L.line
+    : '猫叫的个体差异很大，这个判断仅供参考——它可能只是想说点别的。';
+  barsEl.innerHTML = preds.map(p=>`
+    <div class="bar-row">
+      <span class="name">${LABELS[p.c].emoji} ${LABELS[p.c].zh}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:0%"></span></span>
+      <span class="pct">${(p.p*100).toFixed(0)}%</span>
+    </div>`).join('');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    barsEl.querySelectorAll('.bar-fill').forEach((el,i)=>el.style.width=(preds[i].p*100)+'%');
+  }));
+  // speak button
+  const btn=document.getElementById('btn-speak');
+  btn.onclick=()=>{
+    const u=new SpeechSynthesisUtterance(L.line);
+    u.lang='zh-CN'; u.rate=1.05; u.pitch=1.15;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  };
+  stateEl.textContent=`分析完成 · ${durSec.toFixed(1)} 秒音频`;
+}
+
+async function analyze(blob, label){
+  try{
+    stateEl.textContent='正在分析…';
+    resultEl.style.display='none';
+    const data=await decodeToBuffer(blob);
+    if(data.length<22050*0.3){ stateEl.textContent='音频太短了，录长一点（至少 1 秒）'; drawIdle(); return; }
+    drawStatic(data, data.length/22050);
+    const t0=performance.now();
+    const feat=extractFeatures(Float64Array.from(data));
+    const preds=predict(feat);
+    console.log('inference', (performance.now()-t0).toFixed(0)+'ms');
+    showResult(preds, data.length/22050);
+  }catch(e){
+    console.error(e);
+    stateEl.textContent='无法解析这段音频，试试别的文件或重新录音';
+    drawIdle();
+  }
+}
+
+/* ---------- record ---------- */
+let mediaStream=null, mediaRec=null, chunks=[];
+const btnRec=document.getElementById('btn-record'), btnStop=document.getElementById('btn-stop');
+btnRec.onclick=async()=>{
+  try{
+    mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+  }catch(e){ stateEl.textContent='麦克风授权被拒绝，可以在浏览器设置里重新允许'; return; }
+  const acx=new AudioContext();
+  const src=acx.createMediaStreamSource(mediaStream);
+  liveAnalyser=acx.createAnalyser(); liveAnalyser.fftSize=2048;
+  src.connect(liveAnalyser);
+  cancelAnimationFrame(rafId); drawLive();
+  mediaRec=new MediaRecorder(mediaStream); chunks=[];
+  mediaRec.ondataavailable=e=>chunks.push(e.data);
+  mediaRec.onstop=async()=>{
+    cancelAnimationFrame(rafId); drawIdle(); acx.close();
+    mediaStream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(chunks,{type:mediaRec.mimeType||'audio/webm'});
+    analyze(blob,'recording');
+  };
+  mediaRec.start();
+  btnRec.disabled=true; btnStop.disabled=false;
+  stateEl.textContent='录音中… 叫一声你的猫！';
+  btnRec.innerHTML='<span class="rec-dot"></span>录音中';
+};
+btnStop.onclick=()=>{ if(mediaRec&&mediaRec.state==='recording')mediaRec.stop(); btnRec.disabled=false; btnStop.disabled=true; btnRec.textContent='录音'; };
+
+/* ---------- upload ---------- */
+const fileInput=document.getElementById('file');
+document.getElementById('btn-upload').onclick=()=>fileInput.click();
+fileInput.onchange=()=>{ if(fileInput.files[0]) analyze(fileInput.files[0],'file'); fileInput.value=''; };
+</script>
+</body>
+</html>
