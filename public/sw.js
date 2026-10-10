@@ -1,5 +1,6 @@
-/* MeowScope service worker — cache-first shell for offline use (PWA) */
-const CACHE='meowscope-v6';
+/* MeowScope service worker — network-first so users always get the latest page;
+   cache only as offline fallback. */
+const CACHE='meowscope-v7';
 const ASSETS=[
   './','./index.html','./features.js','./i18n.js','./demos.js',
   './forest.json','./metrics.json','./manifest.webmanifest','./icon-192.png','./icon-512.png'
@@ -13,13 +14,12 @@ self.addEventListener('activate', e=>{
 self.addEventListener('fetch', e=>{
   if(e.request.method!=='GET') return;
   e.respondWith(
-    caches.match(e.request).then(hit=>hit || fetch(e.request).then(res=>{
-      // cache same-origin GETs opportunistically
+    fetch(e.request).then(res=>{
       if(e.request.url.startsWith(self.location.origin)){
         const cl=res.clone();
         caches.open(CACHE).then(c=>c.put(e.request, cl));
       }
       return res;
-    }).catch(()=>hit))
+    }).catch(()=>caches.match(e.request).then(hit=>hit || caches.match('./')))
   );
 });
