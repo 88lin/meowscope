@@ -2,7 +2,7 @@
 
 **在浏览器里听懂猫在说什么。** 录音或上传猫叫，本地 AI 实时判断它在哪种情境下发声（被刷毛 / 等饭 / 被隔离）——所有计算都在你的浏览器完成，**音频不会上传到任何服务器**。
 
-在线体验：https://xdm.ailxg.com （见部署说明，或直接打开 `public/index.html` 也可以跑）
+在线体验：https://88lin.github.io/meowscope/ （或直接打开 `public/index.html` 本地跑）
 
 ## 它能听懂什么
 
