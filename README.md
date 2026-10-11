@@ -27,23 +27,54 @@
 
 训练/测试**按猫划分**（模型从未听过测试集里那只猫的声音），不是作弊的随机划分：
 
-| 验证方式 | 准确率 |
-|---|---|
-| 按猫分组 5 折交叉验证 | **60.9%** |
-| 留一猫验证 (LOSO) | **58.9%** |
-| 随机猜 | 33.3% |
+| 指标 | 数值 | 说明 |
+|---|---|---|
+| 按猫分组 5 折交叉验证 | **60.2%** | 训练与测试永远来自不同的猫 |
+| 留一猫验证 (LOSO) | **59.8%** | 每折只留一只猫当测试集 |
+| macro-F1（三类平均） | **52.6%** | 把少数类也算进来，防止靠「一律猜被隔离」刷分 |
+| **多数类基线** | **50.2%** | 完全不训练、一律猜「被隔离」的分数——这才是真正的地板 |
+| 随机猜 | 33.3% | 三选一 |
 
-细节见 [`public/metrics.json`](public/metrics.json)。参照系：Nicastro & Owren (2003) 与 Prato-Previde et al. (2020) 测得**人类**分辨陌生猫发声情境仅 26-41% 正确——本模型已高于陌生人类，但仍远低于"养猫人听自家猫"。很多宠物翻译产品宣传 90%+，那是"同一只猫的录音再喂回去"的成绩。我们选择公布严格数字。
+细节见 [`public/metrics.json`](public/metrics.json)。请特别注意**多数类基线 50.2%**：`isolation` 占了数据集一半，所以「60% 准确率」相对随机的 33% 看起来不错，但相对不训练也就高了 10 个百分点。这是我们选择公开多数类基线的理由。
+
+### 为什么不去追文献里的 90%+
+
+| 工作 | 报告准确率 | 评测方式 |
+|---|---|---|
+| Ntalampiras 2019（同源数据，DAG-HMM） | 95.94% | 10 折**随机**划分 |
+| Pandeya 2018 | 91.13% | 随机划分 |
+| Ferdiana 2021 | 88.47% | 随机划分 |
+| Purrai | 81.1% | 随机划分 |
+| **本模型** | **59.8–60.2%** | **按猫划分** |
+
+同一只猫的几十段录音被随机分到训练集和测试集，模型只要记住「这只猫的声音长什么样」就能拿高分——这叫**个体泄漏**。我们检索到的公开猫叫分类工作中，**没有一篇报告按个体划分的数字**。所以那些 90%+ 与本项目的 60% 不是同一把尺子，差距主体是评测协议，不是模型。
+
+参照系：Nicastro & Owren (2003) 与 Prato-Previde et al. (2020) 测得**人类**分辨陌生猫发声情境仅 26-41% 正确——本模型高于陌生人，但远低于「养猫人听自家猫」。
+
+## 已知上限与下一步
+
+我们已经用实验确认了这条手工特征路线的天花板（下面都是按猫划分、多种子重复评估的结果）：
+
+| 尝试 | 结果 |
+|---|---|
+| 更丰富的谱特征（谱对比度/带宽/平坦度，107 维） | 准确率持平，macro-F1 略升——**加特征已经不涨分了** |
+| 改用 MLP / SVM / 梯度提升 / 集成 | 准确率持平或下降（MLP 在 LOSO 上 macro-F1 更高，但在 5 折上明显更差，不稳定） |
+| 数据增强（加噪、变速、音量） | **反而降分**：440 条样本下增强主要引入噪声，不是新信息 |
+| 采样率从 22.05k 降到 8k（对齐数据集原生采样率） | 降分（8k LOSO 53.6% vs 22.05k 56.8%）——假设被证伪 |
+| 把随机森林从 400 棵换到 150 棵 + 深度上限 10 | **精度不变，模型体积降到 1/3** ✅ |
+
+结论：继续堆手工特征不会带来质变。真正的跃升来自**预训练音频表征**——Ghani 等 (2023) 显示在小样本动物叫声上，冻结的 Perch embedding + 逻辑回归能达到 0.74–0.92，而同数据集的 MFCC+MLP 基线近乎随机；AVES 在 10 只狗的个体分类上也远超 SVM。路线是：离线用 Perch/AVES 提 embedding，蒸馏成一个能在浏览器里跑的小模型（几百 KB 级）。这是对本项目最有价值的下一步，欢迎 PR。
 
 ## 工作原理
 
 ```
-音频 → 22.05kHz 单声道 → 20 维 MFCC + 一阶差分 + 谱统计（67 维特征）
-     → 随机森林 150 棵（depth 6）→ 三类概率
+音频 → 22.05kHz 单声道 → 95 维特征（MFCC + 差分 + 谱统计 + YIN 音高 + 时长）
+     → 随机森林 150 棵（深度上限 10）→ 三类概率
 ```
 
-- **特征**：MFCC 用纯 JS 实现了 librosa 的完整管线（slaney mel 滤波器组、periodic Hann、DCT-II ortho、power→dB top_db=80），与 Python 逐位对拍（误差 < 1e-6），测试在 `scripts/test_parity.cjs` + `scripts/pyfeat.py`。STFT 用 radix-2 FFT 实现，与改造前的朴素 DFT 逐位对拍（**最大相对差 ~2e-12**，三段示例的预测概率完全一致）。
-- **模型**：随机森林——在 440 样本的小数据上比深度网络更稳、且无需张量库。150 棵树导出为 320KB 的 JSON 决策树（gzip 后 ~50KB），浏览器直接执行。
+- **特征**：MFCC 用纯 JS 实现了 librosa 的完整管线（slaney mel 滤波器组、periodic Hann、DCT-II ortho、power→dB top_db=80），与 Python 逐位对拍，CI 每次提交都会跑（`python3 scripts/parity_check.py`）。STFT 用 radix-2 FFT 实现，与改造前的朴素 DFT 对拍**最大相对差 ~2e-12**。
+- **训练/推理一致性**：浏览器里的特征提取必须与 `scripts/train.py` 完全一致，否则模型等于在用另一套输入。曾经这里踩过坑——谱质心/谱滚降按功率谱算（librosa 用幅度谱）、分帧少了 center padding、delta 边缘处理不同、过零率差 1 个计数，导致质心 3729 vs 2075 这种量级的偏差。现在由 CI 闸门守住。
+- **模型**：随机森林——在 440 样本的小数据上比深度网络更稳、且无需张量库。150 棵、深度上限 10，导出为紧凑数组格式的 JSON，**216KB**（gzip 后几十 KB）。
 - **速度**（2 秒音频实测，Chromium）：特征提取 ~40ms + YIN 音高 ~120ms + 森林推理 ~1ms，合计约 0.2 秒。改用 FFT 之前，朴素 DFT 让特征提取要 1.1–1.4 秒。
 - **重采样一致性**：训练加载器（`train.py:_load_linear`）与网页 wav 解析路径使用完全相同的线性插值，保证训练/推理看到同一段波形。浏览器录音（webm/mp3）走 Web Audio 解码 + 同样的降采样。
 
@@ -54,16 +85,17 @@
 curl -L -o dataset.zip https://zenodo.org/api/records/4008297/files/dataset.zip/content
 python3 -c "import zipfile; zipfile.ZipFile('dataset.zip').extractall('data/')"
 # 解压后 wav 在 data/dataset/，文件名前缀 B/F/I 即类别
+# 数据集是 CC BY-NC：可研究可开源分发，禁止商用
 
 # 2. 训练
 pip install librosa scikit-learn joblib numpy scipy
-python scripts/train.py          # 输出 metrics.json + model.joblib
+python3 scripts/train.py         # 输出 public/metrics.json + public/model.joblib
 
 # 3. 导出为浏览器模型（可选深度：改脚本里的 max_depth）
-python scripts/export_js.py      # 输出 forest.json
+python3 scripts/export_js.py     # 输出 public/forest.json（紧凑数组格式）
 
 # 4. 特征对拍验证（Node >= 18）
-node scripts/test_parity.cjs data/dataset/<某个wav>
+python3 scripts/parity_check.py  # JS↔Python 逐位对拍，不需要下载数据集
 ```
 
 ## 分享图片

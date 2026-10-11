@@ -184,8 +184,8 @@ def main():
     cat_face(d, 952, 272, 168)
     waveform(d, 818, 412, 1086, 466)
     f_cap = font(FR, 17)
-    tw = width(d, "22.05 kHz · 70 维特征 · 随机森林 150 棵", f_cap)
-    text(d, (952 - tw / 2, 492), "22.05 kHz · 70 维特征 · 随机森林 150 棵", f_cap, MUTED)
+    tw = width(d, "22.05 kHz · 95 维特征 · 随机森林 150 棵", f_cap)
+    text(d, (952 - tw / 2, 492), "22.05 kHz · 95 维特征 · 随机森林 150 棵", f_cap, MUTED)
 
     img = img.resize((W, H), Image.LANCZOS)
     img.save(OUT, "PNG", optimize=True)
