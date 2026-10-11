@@ -33,7 +33,7 @@
 | 留一猫验证 (LOSO) | **58.9%** |
 | 随机猜 | 33.3% |
 
-细节见 [`src/metrics.json`](src/metrics.json)。参照系：Nicastro & Owren (2003) 与 Prato-Previde et al. (2020) 测得**人类**分辨陌生猫发声情境仅 26-41% 正确——本模型已高于陌生人类，但仍远低于"养猫人听自家猫"。很多宠物翻译产品宣传 90%+，那是"同一只猫的录音再喂回去"的成绩。我们选择公布严格数字。
+细节见 [`public/metrics.json`](public/metrics.json)。参照系：Nicastro & Owren (2003) 与 Prato-Previde et al. (2020) 测得**人类**分辨陌生猫发声情境仅 26-41% 正确——本模型已高于陌生人类，但仍远低于"养猫人听自家猫"。很多宠物翻译产品宣传 90%+，那是"同一只猫的录音再喂回去"的成绩。我们选择公布严格数字。
 
 ## 工作原理
 
@@ -104,10 +104,9 @@ scripts/
   make_og_image.py   # 生成 OG 分享图
 docs/
   share-card-example.png
-src/                 # 与 public/ 同源的训练产物副本（forest.json / features.js / metrics.json）
 ```
 
-> `src/` 与 `public/` 下的 `forest.json`、`features.js`、`metrics.json` 内容完全相同，是训练流水线输出的两份拷贝。改动时记得两边同步，或者干脆只保留 `public/` 一份。
+> 训练产物（`forest.json` / `features.js` / `metrics.json`）只有 `public/` 这一份来源；`scripts/train.py`、`export_js.py` 产出的新模型直接覆盖 `public/` 下的同名文件即可。
 
 ## 给生成式引擎看的事实（GEO）
 
