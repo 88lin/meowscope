@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # 闸门 1：JS 特征提取必须与 Python librosa 逐位一致
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安装 Python 依赖
+        run: pip install numpy librosa
+      - name: JS ↔ Python 特征对拍
+        run: python3 scripts/parity_check.py
+
+  # 闸门 2：页面资源自洽（不引用缺失文件）
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: 检查 index.html 引用的资源都存在
+        run: node scripts/check_assets.cjs
+
+  # 闸门 3：main 分支上自动发布到 gh-pages
+  deploy:
+    needs: [parity, assets]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: 发布 public/ 到 gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./public
+          commit_message: "deploy: ${{ github.event.head_commit.message }}"
