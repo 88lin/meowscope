@@ -123,10 +123,15 @@ const I18N = {
     'o.c3.h': '3 · Export', 'o.c3.p': 'python scripts/export_js.py turns the forest into JSON; node scripts/test_parity.cjs verifies JS features match Python.',
     // share card
     'share.btn': '📷 Share this result',
-    'share.brand': 'MeowScope · in-browser cat meow classifier',
+    'share.save': '⬇️ Save image',
+    'share.brand': 'MeowScope',
     'share.verdict': 'Sounds like',
     'share.unsure': 'Not sure',
+    'share.unsure.sub': 'The model is unsure — the three bars are raw tendencies, not a verdict.',
     'share.personal': 'personal model',
+    'share.privacy': 'Zero uploads · 100% on-device inference',
+    'share.copied': 'Image copied to clipboard',
+    'share.saved': 'Image saved',
     // footer
     'f.left': 'MeowScope · Dataset CatMeows (Zenodo 4008297, CC-BY-NC) · Literature: Nicastro & Owren 2003/2004, Prato-Previde 2020, Schötz 2023, Sci. Rep. 2025 · For research & entertainment only',
     'f.license': 'MIT License',
@@ -230,16 +235,24 @@ const I18N = {
     'o.c2.h': '2 · 训练', 'o.c2.p': 'pip install librosa scikit-learn && python scripts/train.py 输出模型与交叉验证指标。',
     'o.c3.h': '3 · 导出', 'o.c3.p': 'python scripts/export_js.py 把森林转成 JSON，node scripts/test_parity.cjs 验证 JS 特征与 Python 一致。',
     'share.btn': '📷 分享这个结果',
-    'share.brand': '喵语通 MeowScope · 浏览器里的猫叫分类器',
+    'share.save': '⬇️ 保存图片',
+    'share.brand': '喵语通 MeowScope',
     'share.verdict': '听起来像',
     'share.unsure': '不确定',
+    'share.unsure.sub': '模型没把握，下面三行只是原始倾向，别当结论。',
     'share.personal': '专属模型',
+    'share.privacy': '音频零上传 · 100% 本地推理',
+    'share.copied': '图片已复制到剪贴板',
+    'share.saved': '图片已保存',
     'f.left': '喵语通 MeowScope · 数据集 CatMeows（Zenodo 4008297，CC-BY-NC）· 文献：Nicastro & Owren 2003/2004, Prato-Previde 2020, Schötz 2023, Sci. Rep. 2025 · 仅供研究与娱乐',
     'f.license': 'MIT License',
   }
 };
-let LANG = localStorage.getItem('meowscope_lang') ||
-  (navigator.language||'').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+/* 注意优先级：曾经选过的语言 > 浏览器语言。
+   写成 `a || b ? 'zh' : 'en'` 会因 || 先于 ?: 求值而让已保存的 'en' 也被判成 'zh'。 */
+const saved = localStorage.getItem('meowscope_lang');
+let LANG = (saved && I18N[saved]) ? saved
+  : ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
 if(!I18N[LANG]) LANG='zh';
 function t(key, ...args){
   const v = I18N[LANG][key] !== undefined ? I18N[LANG][key] : I18N.zh[key];
@@ -250,16 +263,29 @@ export { t, applyLang };
 function applyLang(){
   document.documentElement.lang = LANG==='zh' ? 'zh-CN' : 'en';
   document.title = t('doc.title');
-  document.querySelector('meta[name="description"]').setAttribute('content', t('meta.desc'));
+  setMeta('meta[name="description"]', t('meta.desc'));
+  // 社交分享卡片跟随语言
+  setMeta('meta[property="og:title"]', t('doc.title'));
+  setMeta('meta[property="og:description"]', t('meta.desc'));
+  setMeta('meta[name="twitter:title"]', t('doc.title'));
+  setMeta('meta[name="twitter:description"]', t('meta.desc'));
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k=el.dataset.i18n;
     if(k==='hero.lead'||k==='h.note'||k==='p.intro'||k==='h.calib.p') el.innerHTML=t(k);
     else el.textContent=t(k);
   });
+  // 正在播放的示例按钮：换语言时保留 ⏸ 标记
+  document.querySelectorAll('.demo-btn.playing').forEach(el=>{ el.textContent += ' ⏸'; });
   // select options
   const sel=document.getElementById('p-label');
   if(sel) [...sel.options].forEach(o=>o.textContent=t('p.label.'+o.value));
   // dynamic bits
   document.getElementById('lang-btn').textContent=t('lang.btn');
   try{ window.__ms && window.__ms.pRender(); }catch(e){}
+  try{ window.__ms && window.__ms.renderMetrics(); }catch(e){}
+  try{ window.__ms && window.__ms.rerenderResult(); }catch(e){}
+}
+function setMeta(sel, val){
+  const el=document.querySelector(sel);
+  if(el) el.setAttribute('content', val);
 }

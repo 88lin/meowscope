@@ -1,14 +1,21 @@
 {
-  "name": "MeowScope — cat meow classifier",
+  "id": "./",
+  "name": "喵语通 MeowScope — 猫叫情境分类器",
   "short_name": "MeowScope",
-  "description": "Understand what your cat is saying. Cat meow context classifier, 100% in-browser, zero uploads.",
+  "description": "录音或上传猫叫，本地 AI 判断它在哪种情境下发声（被刷毛 / 等饭 / 被隔离）。音频零上传，可离线使用。",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#faf7f2",
   "theme_color": "#d96a2b",
-  "lang": "en",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["utilities", "education"],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]
 }
