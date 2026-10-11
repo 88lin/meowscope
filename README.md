@@ -1,8 +1,17 @@
 # 喵语通 MeowScope 🐱
 
+![License: MIT](https://img.shields.io/badge/License-MIT-green) ![Zero dependency](https://img.shields.io/badge/dependencies-0-blue) ![Privacy](https://img.shields.io/badge/uploads-0-orange)
+
 **在浏览器里听懂猫在说什么。** 录音或上传猫叫，本地 AI 实时判断它在哪种情境下发声（被刷毛 / 等饭 / 被隔离）——所有计算都在你的浏览器完成，**音频不会上传到任何服务器**。
 
 在线体验：https://88lin.github.io/meowscope/ （或直接打开 `public/index.html` 本地跑）
+
+> 分享到微信 / X / Telegram 时的链接预览图：
+> ![MeowScope 分享预览图](public/og-image.png)
+
+分析结果可以一键生成 1200×630 的分享卡片（含波形、三条概率、置信度），直接保存或复制：
+
+![分享卡片示例](docs/share-card-example.png)
 
 ## 它能听懂什么
 
@@ -33,8 +42,9 @@
      → 随机森林 150 棵（depth 6）→ 三类概率
 ```
 
-- **特征**：MFCC 用纯 JS 实现了 librosa 的完整管线（slaney mel 滤波器组、periodic Hann、DCT-II ortho、power→dB top_db=80），与 Python 逐位对拍（误差 < 1e-6），测试在 `scripts/test_parity.cjs` + `scripts/pyfeat.py`。
-- **模型**：随机森林——在 440 样本的小数据上比深度网络更稳、且无需张量库。150 棵树导出为 320KB 的 JSON 决策树（gzip 后 ~50KB），浏览器直接执行，单次推理 < 500ms。
+- **特征**：MFCC 用纯 JS 实现了 librosa 的完整管线（slaney mel 滤波器组、periodic Hann、DCT-II ortho、power→dB top_db=80），与 Python 逐位对拍（误差 < 1e-6），测试在 `scripts/test_parity.cjs` + `scripts/pyfeat.py`。STFT 用 radix-2 FFT 实现，与改造前的朴素 DFT 逐位对拍（**最大相对差 ~2e-12**，三段示例的预测概率完全一致）。
+- **模型**：随机森林——在 440 样本的小数据上比深度网络更稳、且无需张量库。150 棵树导出为 320KB 的 JSON 决策树（gzip 后 ~50KB），浏览器直接执行。
+- **速度**（2 秒音频实测，Chromium）：特征提取 ~40ms + YIN 音高 ~120ms + 森林推理 ~1ms，合计约 0.2 秒。改用 FFT 之前，朴素 DFT 让特征提取要 1.1–1.4 秒。
 - **重采样一致性**：训练加载器（`train.py:_load_linear`）与网页 wav 解析路径使用完全相同的线性插值，保证训练/推理看到同一段波形。浏览器录音（webm/mp3）走 Web Audio 解码 + 同样的降采样。
 
 ## 复现
@@ -56,22 +66,58 @@ python scripts/export_js.py      # 输出 forest.json
 node scripts/test_parity.cjs data/dataset/<某个wav>
 ```
 
-网页本体在 [`public/`](public/)，纯静态，任何静态托管都能跑（`index.html` + 3 个资源文件）。
+## 分享图片
+
+项目里有两张图，用途不同：
+
+| 图片 | 用途 | 尺寸 |
+|---|---|---|
+| `public/og-image.png` | **站点分享预览**：把链接发到微信 / X / Telegram / Slack 时自动显示的大图 | 1200×630 |
+| 结果卡片（运行时生成） | **单次分析结果**：点「📷 分享 / ⬇️ 保存图片」现画，含波形、三类概率、置信度、日期 | 1200×630（2x 超采样） |
+
+- OG 图由 [`scripts/make_og_image.py`](scripts/make_og_image.py) 生成（需要一个 CJK 字体，用 `MEOWSCOPE_FONT_BOLD` / `MEOWSCOPE_FONT_REGULAR` 指定）：
+  ```bash
+  python3 scripts/make_og_image.py     # → public/og-image.png
+  ```
+- 结果卡片在浏览器里用 Canvas 现画，中英文随页面语言；优先调用系统分享，桌面端退化为复制到剪贴板（可直接粘进微信），再退化为下载 PNG。文件名形如 `meowscope-waiting_for_food-67-20261011.png`。
 
 ## 目录
 
 ```
-public/          # 网站本体（单页应用，零依赖零构建）
-  index.html     # 页面 + 交互 + 推理 UI
-  features.js    # 纯 JS MFCC 特征提取（与 librosa 对拍）
-  forest.json    # 随机森林模型（JSON 决策树）
-  metrics.json   # 训练指标，页面"诚实的数据"一节自动渲染
+public/              # 网站本体（单页应用，零依赖零构建）
+  index.html         # 页面 + 交互 + 推理 UI
+  features.js        # 纯 JS MFCC 特征提取（与 librosa 对拍）
+  forest.json        # 随机森林模型（JSON 决策树，按需 fetch）
+  metrics.json       # 训练指标，页面「诚实的数据」一节自动渲染
+  demos.js           # 三段示例猫叫（base64，点击时才加载）
+  i18n.js            # 中/英文案
+  og-image.png       # 社交分享预览图（1200×630）
+  favicon.svg / icon-192.png / icon-512.png
+  llms.txt           # 给生成式引擎看的站点速览（GEO）
+  robots.txt / sitemap.xml
+  manifest.webmanifest / sw.js   # PWA，可离线安装
 scripts/
-  train.py       # 训练 + 按猫分组交叉验证
-  export_js.py   # sklearn 森林 → JSON
-  pyfeat.py      # Python 参考特征（对拍用）
-  test_parity.cjs# Node 对拍测试
+  train.py           # 训练 + 按猫分组交叉验证
+  export_js.py       # sklearn 森林 → JSON
+  pyfeat.py          # Python 参考特征（对拍用）
+  test_parity.cjs    # Node 对拍测试
+  make_og_image.py   # 生成 OG 分享图
+docs/
+  share-card-example.png
+src/                 # 与 public/ 同源的训练产物副本（forest.json / features.js / metrics.json）
 ```
+
+> `src/` 与 `public/` 下的 `forest.json`、`features.js`、`metrics.json` 内容完全相同，是训练流水线输出的两份拷贝。改动时记得两边同步，或者干脆只保留 `public/` 一份。
+
+## 给生成式引擎看的事实（GEO）
+
+为了让 AI 搜索引擎引用到准确数字，站点提供了三样东西：
+
+- `public/llms.txt`：站点速览 + 关键事实（准确率、数据集、技术栈、许可）+ 链接。
+- `index.html` 内嵌 JSON-LD：一个 `WebApplication`（功能、免费、仓库、数据集）和一个 `FAQPage`（4 条问答，含准确率与隐私）。
+- `robots.txt` 与 `sitemap.xml`。
+
+切换页面语言时，`<title>`、`meta description`、`og:*`、`twitter:*` 会同步更新，分享预览不会出现「中文页面配英文描述」。
 
 ## 引用 / 致谢
 

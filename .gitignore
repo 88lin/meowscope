@@ -1,0 +1,17 @@
+# 训练产物（本地生成，不入库）
+scripts/model.joblib
+scripts/feature_config.json
+scripts/metrics.json
+scripts/forest.json
+scripts/data/
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 校验用的临时文件
+/tmp/
+.DS_Store

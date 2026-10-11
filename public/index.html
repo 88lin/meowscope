@@ -5,13 +5,115 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐱 喵语通 · MeowScope — 在浏览器里听懂猫在说什么</title>
 <meta name="description" content="纯浏览器端的猫叫声情境分类器：录音或上传，本地 AI 推理，无任何数据上传。">
+<meta name="author" content="88lin">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="https://88lin.github.io/meowscope/">
 <link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <meta name="theme-color" content="#d96a2b">
-<meta property="og:title" content="MeowScope — what is your cat saying?">
-<meta property="og:description" content="A cat meow classifier that runs 100% in your browser. Zero uploads. Teach it YOUR cat.">
-<meta property="og:image" content="https://88lin.github.io/meowscope/icon-512.png">
+
+<!-- Open Graph / 社交分享预览 -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="喵语通 MeowScope">
+<meta property="og:url" content="https://88lin.github.io/meowscope/">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:title" content="喵语通 MeowScope — 在浏览器里听懂猫在说什么">
+<meta property="og:description" content="录音或上传猫叫，本地 AI 判断它在哪种情境下发声（被刷毛 / 等饭 / 被隔离）。音频零上传，开源可复现。按猫划分准确率 60.9%，高于人类对照组的 26–41%。">
+<meta property="og:image" content="https://88lin.github.io/meowscope/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="喵语通 MeowScope：你的猫在说什么？纯浏览器端 · 音频零上传 · 开源 MIT">
+
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="喵语通 MeowScope — 在浏览器里听懂猫在说什么">
+<meta name="twitter:description" content="录音或上传猫叫，本地 AI 判断发声情境（被刷毛 / 等饭 / 被隔离）。音频零上传，开源可复现。">
+<meta name="twitter:image" content="https://88lin.github.io/meowscope/og-image.png">
+<meta name="twitter:image:alt" content="喵语通 MeowScope：你的猫在说什么？">
+
+<!-- 结构化数据（GEO：便于生成式引擎抓取事实） -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://88lin.github.io/meowscope/#app",
+      "name": "喵语通 MeowScope",
+      "alternateName": "MeowScope",
+      "url": "https://88lin.github.io/meowscope/",
+      "description": "纯浏览器端的猫叫声情境分类器。录音或上传音频后，特征提取与随机森林推理全部在本地完成，音频不会上传到任何服务器。可判断三种情境：被刷毛、等饭、被隔离。",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "任何支持 Web Audio 的现代浏览器",
+      "browserRequirements": "需要麦克风权限（仅录音时）；需要 Web Audio API",
+      "inLanguage": ["zh-CN", "en"],
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
+      "featureList": [
+        "浏览器本地推理，音频零上传",
+        "识别三种发声情境：被刷毛 / 等饭 / 被隔离",
+        "可离线安装（PWA）",
+        "本地个性化训练：教它认识你自己的猫",
+        "生成可分享的结果卡片图片"
+      ],
+      "image": "https://88lin.github.io/meowscope/og-image.png",
+      "screenshot": "https://88lin.github.io/meowscope/og-image.png",
+      "codeRepository": "https://github.com/88lin/meowscope",
+      "license": "https://opensource.org/licenses/MIT",
+      "author": { "@type": "Person", "name": "88lin", "url": "https://github.com/88lin" },
+      "dataset": {
+        "@type": "Dataset",
+        "name": "CatMeows",
+        "description": "21 只猫、440 段标注发声，用于训练与按猫划分验证",
+        "url": "https://zenodo.org/records/4008297",
+        "license": "https://creativecommons.org/licenses/by-nc/4.0/"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://88lin.github.io/meowscope/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "喵语通 MeowScope 的准确率是多少？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "按猫划分（模型从未听过测试集里那只猫）的 5 折交叉验证准确率为 60.9%，留一猫验证为 58.9%，随机猜测为 33.3%。作为对照，人类分辨陌生猫发声情境的正确率仅 26–41%（Nicastro & Owren 2003；Prato-Previde 等 2020）。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "录音会上传到服务器吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不会。音频解码、重采样、特征提取与随机森林推理全部在浏览器页面内完成，没有服务器、没有 cookie、没有统计脚本。个性化模型保存在本机 localStorage。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "它能翻译猫的句子吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不能。同一声喵在不同猫、不同场合含义可以完全不同（语义混叠）。本项目只做发声情境分类，不做句子翻译。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "能识别狗或仓鼠吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不能。模型只在猫叫数据集 CatMeows 上训练。仓鼠的超声发声在 20–100 kHz，人耳和普通麦克风都收不到。"
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
 <style>
   :root{
     --bg:#faf7f2; --ink:#2b2620; --muted:#8a8175; --line:#e6dfd3;
@@ -89,7 +191,14 @@
   .bar-row .pct{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
   .bar-track{height:8px;background:#efe9dd;border-radius:99px;overflow:hidden}
   .bar-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .7s cubic-bezier(.2,.8,.2,1)}
-  .speak-btn{margin-top:16px}
+  .share-row{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+  .share-row .speak-btn{margin-top:0}
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);font-size:.85rem;padding:10px 18px;border-radius:999px;
+    box-shadow:0 6px 24px rgba(60,50,40,.22);z-index:99;opacity:0;transition:opacity .25s ease;pointer-events:none;
+  }
+  .toast.show{opacity:1}
   .demos{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
   .demos .lbl{font-size:.78rem;color:var(--muted);letter-spacing:.05em}
   .demo-btn{
@@ -195,13 +304,13 @@
   <div class="hero">
     <div class="kicker" data-i18n="hero.kicker"></div>
     <h1><span data-i18n="hero.h1a"></span><br><em data-i18n="hero.h1b"></em></h1>
-    <p class="lead">基于 CatMeows 学术数据集训练的猫叫情境分类器，特征提取与推理全部在浏览器本地完成——你的录音不会离开这台设备。它认得出<strong>陌生猫</strong>约六成的喵（比人类强，见下方数据），但听不出你的猫「爱不爱你」——先点下面的示例感受一下它听懂什么。</p>
+    <p class="lead" data-i18n="hero.lead"></p>
   </div>
 
   <div class="meter-card">
     <div class="meter-head">
       <h2 data-i18n="meter.h2"></h2>
-      <span class="state" id="state"></span>
+      <span class="state" id="state" role="status" aria-live="polite"></span>
     </div>
     <canvas id="wave" width="800" height="84"></canvas>
     <div class="controls">
@@ -218,7 +327,7 @@
       <button class="demo-btn" data-i="2" data-i18n="demo.isolation"></button>
     </div>
 
-    <div id="result">
+    <div id="result" role="region" aria-label="分析结果">
       <div class="verdict">
         <span class="emoji" id="v-emoji">🐱</span>
         <span class="text">
@@ -228,8 +337,11 @@
         <span class="mode-tag" id="v-mode" style="display:none">专属模型</span>
       </div>
       <div class="bars" id="bars"></div>
-      <button id="btn-speak" class="ghost speak-btn" data-i18n="btn.speak"></button>
-      <button id="btn-share" class="ghost speak-btn" data-i18n="share.btn" style="display:none"></button>
+      <div class="share-row">
+        <button id="btn-speak" class="ghost speak-btn" data-i18n="btn.speak"></button>
+        <button id="btn-share" class="ghost speak-btn" data-i18n="share.btn" style="display:none"></button>
+        <button id="btn-save" class="ghost speak-btn" data-i18n="share.save" style="display:none"></button>
+      </div>
     </div>
   </div>
 
@@ -342,11 +454,25 @@
 
 <script type="module">
 import { extractFeatures, extractF0Stats } from './features.js';
-import { DEMOS } from './demos.js';
-import forestData from './forest.json' with { type: 'json' };
-import metrics from './metrics.json' with { type: 'json' };
 import { t, applyLang } from './i18n.js';
 applyLang();
+
+/* ---------- 模型与指标：按需 fetch 加载 ----------
+   （不用 import assertion，避免旧版 Firefox/Safari 直接报错；
+     首屏也不必下载 320KB 的 forest.json） */
+let forestData = null, forestPromise = null;
+function loadForest(){
+  if(!forestPromise) forestPromise = fetch('./forest.json').then(r=>{
+    if(!r.ok) throw new Error('forest.json '+r.status);
+    return r.json();
+  }).then(j=>{ forestData=j; return j; });
+  return forestPromise;
+}
+// 空闲时预取，用户点录音/上传时已经就绪
+const idle = window.requestIdleCallback || (fn=>setTimeout(fn, 300));
+idle(()=>loadForest().catch(()=>{}));
+
+const metricsPromise = fetch('./metrics.json').then(r=>r.json()).catch(()=>null);
 
 /* ---------- labels & copy ---------- */
 const LINES = {
@@ -371,9 +497,14 @@ const LLine = k => LINES[window.__i18n.LANG][k] || LINES.zh[k];
 const stateEl = document.getElementById('state');
 const resultEl = document.getElementById('result');
 const barsEl = document.getElementById('bars');
+// 最近一次分析的结果，供分享卡片使用（仅存内存，不落盘）
+let lastWave = null, lastPreds = null, lastDur = 0, lastUnsure = false;
 
 /* ---------- metrics table ---------- */
-{
+let metricsData = null;
+function renderMetrics(){
+  const metrics = metricsData;
+  if(!metrics) return;
   const mt = document.getElementById('metrics-table');
   const pc = metrics.per_class;
   mt.innerHTML = `
@@ -387,6 +518,7 @@ const barsEl = document.getElementById('bars');
     el.textContent = `${t('per.recall')} ${(pc[key].recall*100).toFixed(0)}%`;
   });
 }
+metricsPromise.then(m=>{ metricsData=m; renderMetrics(); });
 
 /* ---------- waveform ---------- */
 const canvas = document.getElementById('wave');
@@ -414,15 +546,24 @@ function drawLive(){
 }
 function drawStatic(buf, duration){
   cancelAnimationFrame(rafId);
-  // min-max envelope
-  const W=canvas.width, block=Math.floor(buf.length/W);
+  // min-max envelope（短音频时 block 可能为 0，需兜底）
+  const W=canvas.width, block=Math.max(1, Math.floor(buf.length/W));
+  const step=Math.max(1, Math.floor(block/64));
+  // 两遍：先量包络峰值，再按峰值归一化（小音量录音也能看出形状）
+  const env=new Float64Array(W);
+  let peak=0;
+  for(let p=0;p<W;p++){
+    let mn=1,mx=-1;
+    for(let i=0;i<block;i+=step){const v=buf[p*block+i];if(v===undefined)break;if(v<mn)mn=v;if(v>mx)mx=v;}
+    env[p]=mn>mx?0:mx-mn;
+    if(env[p]>peak) peak=env[p];
+  }
+  const gain = peak>0 ? (canvas.height*0.86)/peak : 0;
   ctx2d.clearRect(0,0,W,canvas.height);
   ctx2d.fillStyle='#d96a2b';
-  for(let x=0;x<W;x++){
-    let mn=1,mx=-1;
-    for(let i=0;i<block;i+=8){const v=buf[x*block+i];if(v<mn)mn=v;if(v>mx)mx=v;}
-    const h=Math.max(2,(mx-mn)*canvas.height*0.48);
-    ctx2d.fillRect(x,(canvas.height-h)/2,1,h);
+  for(let p=0;p<W;p++){
+    const h=Math.max(2, env[p]*gain);
+    ctx2d.fillRect(p,(canvas.height-h)/2,1,h);
   }
 }
 
@@ -459,13 +600,23 @@ function linearResample(y, from, to){
   for(let i=0;i<n;i++){const p=i*from/to,i0=Math.floor(p);out[i]=y[i0]+(y[Math.min(i0+1,y.length-1)]-y[i0])*(p-i0);}
   return out;
 }
+/* 复用一个 AudioContext：浏览器对同时存在的 AudioContext 数量有限制，
+   反复新建/关闭在 Safari 上会抛错。 */
+let sharedAcx=null;
+function audioCtx(){
+  if(!sharedAcx || sharedAcx.state==='closed'){
+    sharedAcx=new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(sharedAcx.state==='suspended') sharedAcx.resume().catch(()=>{});
+  return sharedAcx;
+}
 async function decodeToBuffer(blob){
   const arrayBuffer = blob instanceof ArrayBuffer ? blob : await blob.arrayBuffer();
   // fast path: PCM wav — exact parity with training
   const wav = parseWavPCM(arrayBuffer);
   if(wav) return linearResample(wav.y, wav.rate, 22050);
   // otherwise use the Web Audio decoder (mic recordings / mp3 / webm …)
-  const acx = new (window.AudioContext||window.webkitAudioContext)(); // decode at native rate, then resample like the training pipeline
+  const acx = audioCtx();
   const audio = await acx.decodeAudioData(arrayBuffer);
   let data = audio.getChannelData(0);
   if(audio.sampleRate!==22050){
@@ -473,12 +624,12 @@ async function decodeToBuffer(blob){
     for(let i=0;i<n;i++){const p=i/ratio,i0=Math.floor(p);out[i]=data[i0]+(data[Math.min(i0+1,data.length-1)]-data[i0])*(p-i0);}
     data=out;
   }
-  acx.close();
   return data;
 }
 
 /* ---------- inference ---------- */
 function predict(feat){
+  if(!forestData) throw new Error('model not loaded');
   const sums=[0,0,0];
   for(const tree of forestData.trees){
     let n=tree;
@@ -506,19 +657,27 @@ function showResult(preds, durSec, rms){
   }));
 
   const shareBtn=document.getElementById('btn-share');
-  const showShare=(label,pct)=>{ shareBtn.style.display=''; shareBtn.onclick=()=>shareCard(top,label,pct); };
+  const saveBtn=document.getElementById('btn-save');
+  // 传函数而不是字符串：切换语言后重新生成卡片时用的是当前语言的文案
+  const showShare=(lineFn)=>{
+    shareBtn.style.display=''; saveBtn.style.display='';
+    shareBtn.onclick=()=>shareResult(lineFn);
+    saveBtn.onclick=()=>saveResult(lineFn);
+  };
 
   // honesty gate: low-confidence top class + near-silence => refuse a fake verdict
   if (top.p < 0.50) {
+    lastUnsure=true;
     verdict.className='verdict unsure';
     document.getElementById('v-emoji').textContent='🤔';
     document.getElementById('v-main').textContent=t('v.unsure');
     document.getElementById('v-sub').textContent=t('v.unsure.sub');
     btn.style.display='none';
-    showShare(t('share.unsure'), (top.p*100).toFixed(0));
+    showShare(()=>t('share.unsure.sub'));
     stateEl.textContent=`${t('st.done')} · ${durSec.toFixed(1)}s · ${t('st.low_conf')}`;
     return;
   }
+  lastUnsure=false;
   const L=LABELS[top.c];
   verdict.className='verdict';
   document.getElementById('v-emoji').textContent=L.emoji;
@@ -533,7 +692,7 @@ function showResult(preds, durSec, rms){
     u.rate=1.05; u.pitch=1.15;
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   };
-  showShare(LLine(top.c), (top.p*100).toFixed(0));
+  showShare(()=>LLine(top.c));
   stateEl.textContent=`${t('st.done')} · ${durSec.toFixed(1)}s`;
 }
 
@@ -556,14 +715,18 @@ async function analyze(blob, label){
       document.getElementById('v-sub').textContent=t('v.silence.sub');
       document.getElementById('btn-speak').style.display='none';
       document.getElementById('btn-share').style.display='none';
+      document.getElementById('btn-save').style.display='none';
       barsEl.innerHTML='';
+      lastWave=null; lastPreds=null; lastUnsure=false;
       stateEl.textContent=t('st.no_sound');
       return;
     }
     const t0=performance.now();
     const feat=extractFeatures(Float64Array.from(data));
     feat.push(...extractF0Stats(Float64Array.from(data)));
+    if(!(usePersonal && personalModel)) await loadForest();
     const preds = (usePersonal && personalModel) ? predictPersonal(feat) : predict(feat);
+    lastWave = data; lastPreds = preds; lastDur = data.length/22050;
     if(usePersonal && personalModel){
       document.getElementById('v-mode').textContent=t('tag.personal');
       document.getElementById('v-mode').style.display='';
@@ -599,8 +762,8 @@ btnRec.onclick=async()=>{
   };
   mediaRec.start();
   btnRec.disabled=true; btnStop.disabled=false;
-  stateEl.textContent=t('st.analyzing')+' 🎙️';;
-  btnRec.innerHTML='<span class="rec-dot"></span>录音中';
+  stateEl.textContent=t('st.analyzing')+' 🎙️';
+  btnRec.innerHTML=`<span class="rec-dot"></span>${t('btn.recording')}`;
 };
 btnStop.onclick=()=>{ if(mediaRec&&mediaRec.state==='recording')mediaRec.stop(); btnRec.disabled=false; btnStop.disabled=true; btnRec.textContent=t('btn.record'); };
 
@@ -609,21 +772,33 @@ const fileInput=document.getElementById('file');
 document.getElementById('btn-upload').onclick=()=>fileInput.click();
 fileInput.onchange=()=>{ if(fileInput.files[0]) analyze(fileInput.files[0],'file'); fileInput.value=''; };
 
-/* ---------- demo meows ---------- */
-let demoAudio=null, demoBtnEl=null;
+/* ---------- demo meows（demos.js 有 139KB，点第一个示例时才下载） ---------- */
+let demoAudio=null, demoBtnEl=null, DEMOS=null;
+async function getDemos(){
+  if(!DEMOS) DEMOS=(await import('./demos.js')).DEMOS;
+  return DEMOS;
+}
 document.querySelectorAll('.demo-btn').forEach(btn=>{
   btn.onclick=async()=>{
-    const i=+btn.dataset.i, d=DEMOS[i];
+    const i=+btn.dataset.i;
+    const list=await getDemos();
+    const d=list[i];
     if(demoAudio){ demoAudio.pause(); }
     if(demoBtnEl){ demoBtnEl.classList.remove('playing'); demoBtnEl.textContent=demoBtnEl.textContent.replace(' ⏸',''); }
     if(demoBtnEl===btn){ demoBtnEl=null; demoAudio=null; return; }
     demoBtnEl=btn; btn.classList.add('playing'); btn.textContent+=' ⏸';
     stateEl.textContent=`${t('demo.playing')}: ${d.file}`;
-    const ab=await (await fetch(d.data)).arrayBuffer();
-    demoAudio=new Audio(d.data);
-    demoAudio.onended=()=>{ btn.classList.remove('playing'); btn.textContent=btn.textContent.replace(' ⏸',''); stateEl.textContent=t('state.ready'); if(demoBtnEl===btn)demoBtnEl=null; };
-    analyze(await (await fetch(d.data)).blob(), 'demo');
-    demoAudio.play();
+    // 只取一次，音频既要播放也要送进推理
+    const blob=await (await fetch(d.data)).blob();
+    demoAudio=new Audio(URL.createObjectURL(blob));
+    demoAudio.onended=()=>{
+      btn.classList.remove('playing'); btn.textContent=btn.textContent.replace(' ⏸','');
+      stateEl.textContent=t('state.ready');
+      URL.revokeObjectURL(demoAudio.src);
+      if(demoBtnEl===btn) demoBtnEl=null;
+    };
+    analyze(blob, 'demo');
+    demoAudio.play().catch(()=>{});
   };
 });
 
@@ -711,12 +886,12 @@ document.getElementById('p-record').onclick=async()=>{
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
   catch(e){ document.getElementById('p-status').textContent=t('err.mic'); return; }
   const btn=document.getElementById('p-record');
-  btn.disabled=true; btn.textContent='<span class="rec-dot"></span>录音中…';
+  btn.disabled=true; btn.innerHTML=`<span class="rec-dot"></span>${t('btn.recording')}…`;
   const rec=new MediaRecorder(stream); const chunks=[];
   rec.ondataavailable=e=>chunks.push(e.data);
   rec.onstop=async()=>{
     stream.getTracks().forEach(t=>t.stop());
-    btn.disabled=false; btn.textContent='🎙️ 录一段教学样本';
+    btn.disabled=false; btn.textContent=t('p.btn.record');
     const blob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});
     try{
       const data=await decodeToBuffer(blob);
@@ -751,49 +926,185 @@ document.getElementById('mode-personal').onclick=()=>{
   document.getElementById('mode-universal').classList.remove('active');
   stateEl.textContent=t('p.switched.personal');
 };
-/* ---------- share card: render verdict to a canvas, download / Web-Share ---------- */
-let lastShare=null; // {emoji,label,pct,line,personal}
-function shareCard(top, label, pct){
-  lastShare={emoji:LABELS[top.c]?LABELS[top.c].emoji:'🤔', label, pct,
-    personal: usePersonal && !!personalModel};
-  const c=document.createElement('canvas'); c.width=1000; c.height=525;
-  const x=c.getContext('2d');
-  // warm paper background
-  x.fillStyle='#faf7f2'; x.fillRect(0,0,1000,525);
-  x.strokeStyle='#e6dfd3'; x.lineWidth=2; x.strokeRect(24,24,952,477);
-  // accent bar
-  x.fillStyle='#d96a2b'; x.fillRect(24,24,8,477);
-  // brand
-  x.fillStyle='#8a8175'; x.font='500 22px Georgia, serif';
-  x.fillText(t('share.brand'), 64, 84);
-  x.fillStyle='#d96a2b'; x.font='700 15px Georgia, serif';
-  x.fillText('MEOWSCOPE.GITHUB.IO', 64, 112);
-  // emoji
-  x.font='120px serif'; x.fillText(lastShare.emoji, 64, 260);
-  // verdict
-  x.fillStyle='#2b2620'; x.font='700 44px Georgia, serif';
-  x.fillText(t('share.verdict'), 64, 340);
-  x.fillStyle='#d96a2b'; x.font='800 72px Georgia, serif';
-  const vt=`${label} · ${pct}%`;
-  x.fillText(vt, 64, 424);
-  if(lastShare.personal){
-    x.fillStyle='#3d7a4e'; x.font='500 22px Georgia, serif';
-    x.fillText('· '+t('share.personal'), 64, 462);
+/* ---------- 分享卡片：把结果画成 1200×630 高清图（2x 超采样） ---------- */
+const CARD_W = 1200, CARD_H = 630, CARD_S = 2;
+const SERIF = '"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif';
+const EMOJI_F = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';
+const C = { bg:'#faf7f2', ink:'#2b2620', muted:'#8a8175', line:'#e6dfd3',
+            card:'#ffffff', accent:'#d96a2b', accentSoft:'#f7e3d3', ok:'#3d7a4e' };
+
+function toast(msg){
+  let el=document.getElementById('ms-toast');
+  if(!el){ el=document.createElement('div'); el.id='ms-toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), 2200);
+}
+function roundRect(x,a,b,w,h,r){
+  const rr=Math.min(r,w/2,h/2);
+  x.beginPath(); x.moveTo(a+rr,b);
+  x.arcTo(a+w,b,a+w,b+h,rr); x.arcTo(a+w,b+h,a,b+h,rr);
+  x.arcTo(a,b+h,a,b,rr); x.arcTo(a,b,a+w,b,rr); x.closePath();
+}
+/* 逐字换行：中文没有空格，按字符量宽 */
+function wrapText(x, text, maxW){
+  const out=[]; let line='';
+  for(const ch of text){
+    if(x.measureText(line+ch).width > maxW && line){ out.push(line); line=ch; }
+    else line+=ch;
   }
-  // watermark qr-ish: just repo url bottom right
-  x.fillStyle='#8a8175'; x.font='400 20px Georgia, serif';
-  x.textAlign='right';
-  x.fillText('github.com/88lin/meowscope', 936, 468);
-  x.textAlign='left';
-  c.toBlob(async (blob)=>{
-    const file=new File([blob],'meowscope.png',{type:'image/png'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{ await navigator.share({files:[file], title:'MeowScope'}); return; }catch(e){}
+  if(line) out.push(line);
+  return out;
+}
+function drawWaveform(x, buf, a, b, w, h){
+  const mid=b+h/2, bars=Math.min(150, Math.max(40, Math.floor(w/5)));
+  const bw=w/bars;
+  // 先算包络再按峰值归一化：否则小音量的录音会画成一条直线
+  const env=new Float64Array(bars);
+  let peak=0;
+  if(buf && buf.length){
+    for(let i=0;i<bars;i++){
+      let mn=1,mx=-1;
+      const s=Math.floor(i*buf.length/bars), e=Math.max(s+1, Math.floor((i+1)*buf.length/bars));
+      for(let j=s;j<e;j++){ const v=buf[j]; if(v<mn)mn=v; if(v>mx)mx=v; }
+      env[i]=mn>mx?0:mx-mn;
+      if(env[i]>peak) peak=env[i];
     }
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download='meowscope.png'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-  },'image/png');
+  }
+  const gain = peak>0 ? (h*0.92)/peak : 0;
+  x.fillStyle=C.accent;
+  for(let i=0;i<bars;i++){
+    const hh=Math.max(2, env[i]*gain);
+    const px=a+i*bw;
+    roundRect(x, px, mid-hh/2, bw*0.6, hh, bw*0.3); x.fill();
+  }
+}
+function buildShareCanvas(line){
+  const cv=document.createElement('canvas');
+  cv.width=CARD_W*CARD_S; cv.height=CARD_H*CARD_S;
+  const x=cv.getContext('2d');
+  x.scale(CARD_S,CARD_S);
+  x.textBaseline='alphabetic';
+  const preds=lastPreds||[], top=preds[0];
+  const unsure=lastUnsure || !top || top.p<0.5;
+
+  // 背景与装饰
+  x.fillStyle=C.bg; x.fillRect(0,0,CARD_W,CARD_H);
+  x.fillStyle=C.accentSoft;
+  x.beginPath(); x.ellipse(1010,-40,330,210,0,0,Math.PI*2); x.fill();
+  x.fillStyle='#f2ece1';
+  x.beginPath(); x.ellipse(-40,660,220,190,0,0,Math.PI*2); x.fill();
+
+  // 外框 + 左侧橙色竖条
+  x.strokeStyle=C.line; x.lineWidth=2;
+  roundRect(x,24,24,CARD_W-48,CARD_H-48,30); x.stroke();
+  x.fillStyle=C.accent;
+  roundRect(x,24,24,8,CARD_H-48,4); x.fill();
+
+  // 页眉：品牌 + 日期
+  x.font=`46px ${EMOJI_F}`; x.fillStyle=C.ink;
+  x.fillText('🐱', 64, 96);
+  x.font=`700 30px ${SERIF}`; x.fillStyle=C.ink;
+  x.fillText(t('share.brand'), 124, 92);
+  x.font=`400 18px ${SERIF}`; x.fillStyle=C.muted;
+  const d=new Date();
+  const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  x.textAlign='right'; x.fillText(dateStr, CARD_W-64, 92); x.textAlign='left';
+
+  x.strokeStyle=C.line; x.lineWidth=1;
+  x.beginPath(); x.moveTo(64,124); x.lineTo(CARD_W-64,124); x.stroke();
+
+  // 大 emoji + 判定
+  const emoji = unsure ? '🤔' : (LABELS[top.c] ? LABELS[top.c].emoji : '🐱');
+  x.font=`112px ${EMOJI_F}`; x.fillStyle=C.ink;
+  x.fillText(emoji, 64, 268);
+
+  x.font=`400 22px ${SERIF}`; x.fillStyle=C.muted;
+  x.fillText(t('share.verdict'), 200, 196);
+
+  const head = unsure ? t('share.unsure') : LName(top.c);
+  const pct  = top ? Math.round(top.p*100) : 0;
+  x.font=`700 62px ${SERIF}`; x.fillStyle=C.ink;
+  x.fillText(head, 200, 258);
+  const hw=x.measureText(head).width;
+  x.font=`800 44px ${SERIF}`; x.fillStyle=C.accent;
+  x.fillText(`${pct}%`, 200+hw+16, 258);
+
+  // 专属模型徽章
+  if(usePersonal && personalModel){
+    const tag=t('share.personal');
+    x.font=`600 18px ${SERIF}`;
+    const tw=x.measureText(tag).width+28;
+    x.fillStyle='#e2efe5';
+    roundRect(x, 200, 274, tw, 32, 16); x.fill();
+    x.fillStyle=C.ok; x.fillText(tag, 214, 296);
+  }
+
+  // 一句“猫话”
+  x.font=`400 24px ${SERIF}`; x.fillStyle='#5c554b';
+  const sub=wrapText(x, line||'', CARD_W-128);
+  sub.slice(0,2).forEach((l,i)=>x.fillText(l, 64, 348+i*34));
+
+  // 三条概率条
+  const barTop=400;
+  (preds.length?preds:[]).forEach((p,i)=>{
+    const y=barTop+i*38;
+    x.font=`400 20px ${SERIF}`; x.fillStyle='#5c554b';
+    x.fillText(`${LABELS[p.c]?LABELS[p.c].emoji:''} ${LName(p.c)}`, 64, y+18);
+    x.fillStyle='#efe9dd';
+    roundRect(x, 260, y+6, CARD_W-260-64-70, 12, 6); x.fill();
+    x.fillStyle = i===0 ? C.accent : C.muted;
+    const w=Math.max(4,(CARD_W-260-64-70)*p.p);
+    roundRect(x, 260, y+6, w, 12, 6); x.fill();
+    x.font=`400 20px ${SERIF}`; x.fillStyle=C.muted;
+    x.textAlign='right'; x.fillText(`${Math.round(p.p*100)}%`, CARD_W-64, y+18); x.textAlign='left';
+  });
+
+  // 波形
+  drawWaveform(x, lastWave, 64, 512, CARD_W-128, 52);
+
+  // 页脚
+  x.font=`400 18px ${SERIF}`; x.fillStyle=C.muted;
+  x.fillText(t('share.privacy'), 64, 594);
+  x.textAlign='right'; x.fillStyle=C.accent;
+  x.fillText('88lin.github.io/meowscope', CARD_W-64, 594); x.textAlign='left';
+  return {cv, top, pct};
+}
+function shareFileName(top, pct){
+  const d=new Date();
+  const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const key=(top&&top.c)||'unsure';
+  return `meowscope-${key}-${pct}-${stamp}.png`;
+}
+async function cardBlob(line){
+  const {cv, top, pct}=buildShareCanvas(line);
+  const blob=await new Promise(res=>cv.toBlob(res,'image/png'));
+  return {blob, top, pct};
+}
+async function shareResult(lineFn){
+  const line = typeof lineFn==='function' ? lineFn() : lineFn;
+  const {blob, top, pct}=await cardBlob(line);
+  const file=new File([blob], shareFileName(top,pct), {type:'image/png'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'MeowScope · '+t('share.brand')}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  // 桌面端：优先复制图片到剪贴板（可直接粘进微信/飞书）
+  if(navigator.clipboard && window.ClipboardItem && navigator.clipboard.write){
+    try{ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); toast(t('share.copied')); return; }
+    catch(e){}
+  }
+  downloadBlob(blob, shareFileName(top,pct));
+}
+async function saveResult(lineFn){
+  const line = typeof lineFn==='function' ? lineFn() : lineFn;
+  const {blob, top, pct}=await cardBlob(line);
+  downloadBlob(blob, shareFileName(top,pct));
+  toast(t('share.saved'));
+}
+function downloadBlob(blob, name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
 }
 
 /* ---------- language toggle ---------- */
@@ -803,13 +1114,16 @@ document.getElementById('lang-btn').onclick=()=>{
 
 /* ---------- PWA: register service worker for offline install ---------- */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('./sw.js?v=7').catch(()=>{});
+  navigator.serviceWorker.register('./sw.js?v=8').catch(()=>{});
 }
 
 // test hooks (used by automated e2e; harmless in production)
-window.__ms={decodeToBuffer, extractFeatures, extractF0Stats, predict, predictPersonal:()=>predictPersonal, trainPersonal, pSamples:()=>pSamples, lsSave, pRender,
+window.__ms={decodeToBuffer, extractFeatures, extractF0Stats, predict, predictPersonal:()=>predictPersonal, trainPersonal, pSamples:()=>pSamples, lsSave, pRender, renderMetrics,
+  rerenderResult:()=>{ if(lastPreds) showResult(lastPreds, lastDur, 0); },
+  buildShareCanvas,
   get usePersonal(){return usePersonal;}, set usePersonal(v){usePersonal=v;},
-  get personalModel(){return personalModel;}, get preds(){return null;},
+  get personalModel(){return personalModel;}, get preds(){return lastPreds;},
+  get unsure(){return lastUnsure;}, set unsure(v){lastUnsure=v;},
   predictPersonalFeat:(ft)=>predictPersonal(ft)};
 pRender();
 </script>
