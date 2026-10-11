@@ -15,7 +15,10 @@ function melToHz(m, htk = false) {
 }
 
 // librosa.filters.mel(sr, n_fft, n_mels=128, fmin=0, fmax=null, htk=false, norm='slaney')
+// 只依赖常量，算一次就够（原来每次提取都重算 130×1025）
+let fbCache = null;
 function melFilterbank() {
+  if (fbCache) return fbCache;
   const fmax = SR / 2;
   const nFreqs = 1 + N_FFT / 2;
   const fftFreqs = Array.from({ length: nFreqs }, (_, i) => i * SR / N_FFT);
@@ -42,58 +45,64 @@ function melFilterbank() {
     }
     fb.push(row);
   }
+  fbCache = fb;
   return fb;
 }
 
-// naive but correct DFT for 1025 bins (n_fft=2048) — cached basis
-let basisCache = null;
-function dftBasis() {
-  if (basisCache) return basisCache;
-  const n = N_FFT, half = n / 2 + 1;
-  const cos = new Float64Array(half * n), sin = new Float64Array(half * n);
-  for (let k = 0; k < half; k++)
-    for (let t = 0; t < n; t++) {
-      const a = 2 * Math.PI * k * t / n;
-      cos[k * n + t] = Math.cos(a); sin[k * n + t] = Math.sin(a);
+/* ---------- radix-2 迭代 FFT ----------
+   X[k] = Σ x[t]·e^{-2πi·k·t/n}，与上面朴素 DFT 定义一致。
+   朴素 DFT 是 O(n²)：2 秒音频要跑 86 帧 × 1025 频点 × 2048 ≈ 1.8 亿次乘加（约 1.5s）。
+   换成 FFT 后同一工作量约 86 × 2048×11，快两个数量级。
+   与朴素 DFT 的差值在 1e-12 量级（见 scripts/test_parity.cjs 的对拍思路）。 */
+function fftInPlace(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {          // 位反转置换
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      let t = re[i]; re[i] = re[j]; re[j] = t;
+      t = im[i]; im[i] = im[j]; im[j] = t;
     }
-  basisCache = { cos, sin, half };
-  return basisCache;
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len;
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    const half = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let curRe = 1, curIm = 0;
+      for (let k = 0; k < half; k++) {
+        const a = i + k, b = a + half;
+        const vRe = re[b] * curRe - im[b] * curIm;
+        const vIm = re[b] * curIm + im[b] * curRe;
+        const uRe = re[a], uIm = im[a];
+        re[a] = uRe + vRe; im[a] = uIm + vIm;
+        re[b] = uRe - vRe; im[b] = uIm - vIm;
+        const nRe = curRe * wRe - curIm * wIm;
+        curIm = curRe * wIm + curIm * wRe; curRe = nRe;
+      }
+    }
+  }
 }
-
-function frameSignal(y) {
-  const nFrames = 1 + Math.floor((y.length - N_FFT) / HOP);
-  if (nFrames <= 0) return null;
-  const frames = new Float64Array(nFrames * N_FFT);
-  for (let i = 0; i < nFrames; i++)
-    for (let t = 0; t < N_FFT; t++)
-      frames[i * N_FFT + t] = y[i * HOP + t] * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / N_FTT_SAFE));
-  return frames;
-}
-const N_FTT_SAFE = N_FFT; // hann window periodic
 
 function stftPower(y) {
-  const { cos, sin, half } = dftBasis();
+  const half = N_FFT / 2 + 1;
   const nFrames = 1 + Math.floor((y.length - N_FFT) / HOP);
   const S = new Float64Array(nFrames * half);
-  const buf = new Float64Array(N_FFT);
+  // periodic Hann，与 librosa 默认 hann 一致（0.5 - 0.5·cos(2πt/n)）
+  const win = new Float64Array(N_FFT);
+  for (let t = 0; t < N_FFT; t++) win[t] = 0.5 - 0.5 * Math.cos(2 * Math.PI * t / N_FFT);
+  const re = new Float64Array(N_FFT), im = new Float64Array(N_FFT);
   for (let i = 0; i < nFrames; i++) {
-    for (let t = 0; t < N_FFT; t++)
-      buf[t] = y[i * HOP + t] * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / N_FFT));
-    for (let k = 0; k < half; k++) {
-      let re = 0, im = 0;
-      const off = k * N_FFT;
-      for (let t = 0; t < N_FFT; t++) {
-        const x = buf[t];
-        re += cos[off + t] * x; im -= sin[off + t] * x;
-      }
-      S[i * half + k] = re * re + im * im;
-    }
+    for (let t = 0; t < N_FFT; t++) { re[t] = y[i * HOP + t] * win[t]; im[t] = 0; }
+    fftInPlace(re, im);
+    for (let k = 0; k < half; k++) S[i * half + k] = re[k] * re[k] + im[k] * im[k];
   }
   return { S, nFrames, half };
 }
 
-function melSpectrogram(y) {
-  const { S, nFrames, half } = stftPower(y);
+function melSpectrogram(y, precomputed) {
+  const { S, nFrames, half } = precomputed || stftPower(y);
   const fb = melFilterbank();
   const mel = new Float64Array(nFrames * N_MELS);
   for (let i = 0; i < nFrames; i++)
@@ -111,13 +120,26 @@ function melSpectrogram(y) {
 }
 
 // librosa.feature.mfcc: DCT-II, norm='ortho' applied on (n_mfcc, n_frames) of log-mel
+// cos 表只依赖 (r, m)，预先算好，别在帧循环里重复 Math.cos
+let dctCache = null;
+function dctTable(rows) {
+  if (dctCache) return dctCache;
+  const tbl = new Float64Array(rows * N_MELS);
+  for (let r = 0; r < rows; r++)
+    for (let m = 0; m < N_MELS; m++)
+      tbl[r * N_MELS + m] = Math.cos(Math.PI * r * (2 * m + 1) / (2 * N_MELS));
+  dctCache = tbl;
+  return tbl;
+}
 function dct2(matrix, rows, cols) { // rows=n_mfcc out, cols=nFrames, input n_mels x frames
+  const tbl = dctTable(rows);
   const out = new Float64Array(rows * cols);
   for (let c = 0; c < cols; c++)
     for (let r = 0; r < rows; r++) {
       let sum = 0;
+      const off = r * N_MELS;
       for (let m = 0; m < N_MELS; m++)
-        sum += matrix[m * cols + c] * Math.cos(Math.PI * r * (2 * m + 1) / (2 * N_MELS));
+        sum += matrix[m * cols + c] * tbl[off + m];
       const norm = r === 0 ? Math.sqrt(1 / (4 * N_MELS)) : Math.sqrt(1 / (2 * N_MELS));
       out[r * cols + c] = sum * 2 * norm;
     }
@@ -159,8 +181,10 @@ export function extractFeatures(y) {
   if (y.length < SR / 4) {
     const p = new Float64Array(Math.ceil(SR / 4)); p.set(y); y = p;
   }
-  const { S, nFrames, half } = stftPower(y);
-  const { mel } = melSpectrogram(y);
+  // STFT 只算一次：mel  Spectrogram 和谱统计共用同一份功率谱
+  const stft = stftPower(y);
+  const { S, nFrames, half } = stft;
+  const { mel } = melSpectrogram(y, stft);
   const mfcc = dct2(mel, N_MFCC, nFrames); // r*cols+c, mel is m*cols+c
   // delta1: librosa.feature.delta, mode='interp', width=9
   const d1 = new Float64Array(N_MFCC * nFrames);
