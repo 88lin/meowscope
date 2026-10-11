@@ -511,6 +511,9 @@ function renderMetrics(){
     <tr><th>${t('h.th.method')}</th><th>${t('h.th.acc')}</th><th>${t('h.th.note')}</th></tr>
     <tr><td>${t('h.row.gkf')}</td><td class="num"><b>${(metrics.grouped_5fold_cv_accuracy*100).toFixed(1)}%</b></td><td>${t('h.row.gkf.n')}</td></tr>
     <tr><td>${t('h.row.loso')}</td><td class="num"><b>${(metrics.leave_one_cat_out_accuracy*100).toFixed(1)}%</b></td><td>${t('h.row.loso.n')}</td></tr>
+    <tr><td>${t('h.row.macrof1')}</td><td class="num"><b>${(metrics.leave_one_cat_out_macro_f1*100).toFixed(1)}%</b></td><td>${t('h.row.macrof1.n')}</td></tr>
+    ${metrics.majority_class_accuracy!==undefined?`<tr><td>${t('h.row.majority')}</td><td class="num">${(metrics.majority_class_accuracy*100).toFixed(1)}%</td><td>${t('h.row.majority.n')}</td></tr>`:''}
+    <tr><td>${t('h.row.random')}</td><td class="num">${(metrics.random_guess_accuracy*100).toFixed(1)}%</td><td>${t('h.row.random.n')}</td></tr>
     ${metrics.labels.map(l=>`<tr><td>· ${LName(l)} ${t('h.row.recall')}</td><td class="num">${(pc[l].recall*100).toFixed(0)}%</td><td>${l}</td></tr>`).join('')}`;
   // fill the per-class prob references
   document.querySelectorAll('.card .prob').forEach((el,i)=>{
@@ -631,10 +634,11 @@ async function decodeToBuffer(blob){
 function predict(feat){
   if(!forestData) throw new Error('model not loaded');
   const sums=[0,0,0];
+  // 紧凑格式：内部节点 [特征, 阈值, 左, 右]，叶子 [三类票数]
   for(const tree of forestData.trees){
     let n=tree;
-    while(n.v===undefined) n = feat[n.f] <= n.t ? n.l : n.r;
-    for(let i=0;i<3;i++) sums[i]+=n.v[i];
+    while(n.length===4) n = feat[n[0]] <= n[1] ? n[2] : n[3];
+    for(let i=0;i<3;i++) sums[i]+=n[i];
   }
   const tot=sums.reduce((a,b)=>a+b,0);
   return forestData.classes.map((c,i)=>({c, p:sums[i]/tot})).sort((a,b)=>b.p-a.p);
