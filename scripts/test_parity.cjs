@@ -3,7 +3,8 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 // Node 24 can't import ESM .js from CJS easily; use dynamic import
 (async () => {
-  const { extractFeatures } = await import("./features.js");
+  // 注意：features.js 在 public/ 下，这里必须回到上层目录去找
+  const { extractFeatures, extractF0Stats } = await import("../public/features.js");
   // read wav via minimal parser (16-bit PCM mono)
   function readWav(path) {
     const b = fs.readFileSync(path);
@@ -41,5 +42,6 @@ const { execSync } = require("child_process");
   }
   const t0 = Date.now();
   const feat = extractFeatures(y);
-  console.log(JSON.stringify({ feat, ms: Date.now() - t0 }));
+  const f0 = extractF0Stats(y);
+  console.log(JSON.stringify({ feat, f0, ms: Date.now() - t0 }));
 })();
