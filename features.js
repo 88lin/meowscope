@@ -2,6 +2,25 @@
 // Matches train.py: sr=22050, n_mfcc=20, n_fft=2048, hop=512 (librosa defaults),
 // slaney mel filterbank, DCT-II orthogonal, power=2.
 const SR = 22050, N_FFT = 2048, HOP = 512, N_MELS = 128, N_MFCC = 20;
+const PAD = N_FFT >> 1;          // librosa center=True 时两端各补 frame_length//2
+
+/* librosa 的 center=True 会先把信号两端补齐再分帧，帧数 = 1 + len(y)//hop。
+   早期版本直接从不补零的信号上分帧，帧数少了 4 帧，与训练时（librosa）对不上。 */
+function padConstant(y) {
+  const o = new Float64Array(y.length + 2 * PAD);
+  o.set(y, PAD);
+  return o;
+}
+// librosa.feature.zero_crossing_rate 用的是 mode="edge"（不是 constant）
+function padEdge(y) {
+  const o = new Float64Array(y.length + 2 * PAD);
+  const a = y.length ? y[0] : 0, b = y.length ? y[y.length - 1] : 0;
+  for (let i = 0; i < PAD; i++) o[i] = a;
+  o.set(y, PAD);
+  for (let i = 0; i < PAD; i++) o[PAD + y.length + i] = b;
+  return o;
+}
+function nFramesOf(len) { return 1 + Math.floor(len / HOP); }
 
 function hzToMel(f, htk = false) {
   if (htk) return 2595 * Math.log10(1 + f / 700);
@@ -87,14 +106,15 @@ function fftInPlace(re, im) {
 
 function stftPower(y) {
   const half = N_FFT / 2 + 1;
-  const nFrames = 1 + Math.floor((y.length - N_FFT) / HOP);
+  const yc = padConstant(y);
+  const nFrames = nFramesOf(y.length);
   const S = new Float64Array(nFrames * half);
   // periodic Hann，与 librosa 默认 hann 一致（0.5 - 0.5·cos(2πt/n)）
   const win = new Float64Array(N_FFT);
   for (let t = 0; t < N_FFT; t++) win[t] = 0.5 - 0.5 * Math.cos(2 * Math.PI * t / N_FFT);
   const re = new Float64Array(N_FFT), im = new Float64Array(N_FFT);
   for (let i = 0; i < nFrames; i++) {
-    for (let t = 0; t < N_FFT; t++) { re[t] = y[i * HOP + t] * win[t]; im[t] = 0; }
+    for (let t = 0; t < N_FFT; t++) { re[t] = yc[i * HOP + t] * win[t]; im[t] = 0; }
     fftInPlace(re, im);
     for (let k = 0; k < half; k++) S[i * half + k] = re[k] * re[k] + im[k] * im[k];
   }
@@ -147,24 +167,34 @@ function dct2(matrix, rows, cols) { // rows=n_mfcc out, cols=nFrames, input n_me
 }
 
 function centroidRolloffZcrRms(y, nFrames, half, S) {
-  const freqs = Array.from({ length: half }, (_, i) => i * SR / N_FFT);
-  const cent = new Float64Array(nFrames), rolloff = new Float64Array(nFrames), zcr = new Float64Array(nFrames), rms = new Float64Array(nFrames);
+  const freqs = new Float64Array(half);
+  for (let i = 0; i < half; i++) freqs[i] = i * SR / N_FFT;
+  const cent = new Float64Array(nFrames), rolloff = new Float64Array(nFrames),
+        zcr = new Float64Array(nFrames), rms = new Float64Array(nFrames);
+  // librosa 的谱统计用的是幅度谱 |STFT|，不是功率谱；早期版本按功率谱算，
+  // 质心/滚降与训练时差了一倍量级（实测 3729 vs 2075），属于训练/推理不一致。
+  const mag = new Float64Array(S.length);
+  for (let i = 0; i < S.length; i++) mag[i] = Math.sqrt(S[i]);
+  const yc = padConstant(y), ye = padEdge(y);
   for (let i = 0; i < nFrames; i++) {
     let num = 0, den = 0;
-    for (let k = 1; k < half; k++) { const p = S[i * half + k]; num += freqs[k] * p; den += p; }
+    for (let k = 0; k < half; k++) { const m = mag[i * half + k]; num += freqs[k] * m; den += m; }
     cent[i] = den > 0 ? num / den : 0;
-    // rolloff 0.85
-    let total = 0; for (let k = 0; k < half; k++) total += S[i * half + k];
+    // rolloff 0.85：第一个使累积能量达到 85% 的频点
+    let total = 0;
+    for (let k = 0; k < half; k++) total += mag[i * half + k];
     let acc = 0, rk = half - 1;
-    for (let k = 0; k < half; k++) { acc += S[i * half + k]; if (acc >= 0.85 * total) { rk = k; break; } }
+    for (let k = 0; k < half; k++) { acc += mag[i * half + k]; if (acc >= 0.85 * total) { rk = k; break; } }
     rolloff[i] = freqs[rk];
+    // zero_crossing_rate：|v| <= 1e-10 视为 0、0 的符号记为正；
+    // 注意 librosa 内部把 pad 设成 False，所以第 0 个样本不计入穿越
     let z = 0;
     const start = i * HOP;
-    for (let t = 1; t <= N_FFT && start + t < y.length; t++)
-      z += ((y[start + t] * y[start + t - 1]) < 0) ? 1 : 0;
+    const sb = (t) => { const v = ye[start + t]; return (Math.abs(v) <= 1e-10 ? 0 : v) < 0; };
+    for (let t = 1; t < N_FFT; t++) if (sb(t) !== sb(t - 1)) z++;
     zcr[i] = z / N_FFT;
     let e = 0;
-    for (let t = 0; t < N_FFT; t++) { const v = y[start + t]; e += v * v; }
+    for (let t = 0; t < N_FFT; t++) { const v = yc[start + t]; e += v * v; }
     rms[i] = Math.sqrt(e / N_FFT);
   }
   return { cent, rolloff, zcr, rms };
@@ -188,13 +218,25 @@ export function extractFeatures(y) {
   const mfcc = dct2(mel, N_MFCC, nFrames); // r*cols+c, mel is m*cols+c
   // delta1: librosa.feature.delta, mode='interp', width=9
   const d1 = new Float64Array(N_MFCC * nFrames);
-  const W = 4; // width 9 -> offsets -4..4, edge fill with nearest (mode interp uses edge padding then Savitzky-Golay; approximate with simple central diff of padded)
+  const W = 4; // width 9 -> offsets -4..4
+  const norm = 2 * (W * (W + 1) * (2 * W + 1) / 6);   // = 2*Σd² = 60
+  // 中间部分与 scipy.savgol_filter(width=9, polyorder=1, deriv=1) 的系数完全一致：
+  //   out[c] = Σ_{d=1..4} d·(x[c+d] − x[c−d]) / 60
+  // 但边缘 savgol 用 mode='interp'：把首尾窗口拟合出的直线外推，
+  // 于是最外侧各 4 帧的导数 = 那条拟合直线的斜率（不是简单的边缘复制）。
+  const slopeOf = (at, n, start) => {
+    let s = 0;
+    for (let i = 0; i < 2 * W + 1; i++) s += (i - W) * at(start + i);
+    return s / norm;
+  };
   for (let r = 0; r < N_MFCC; r++) {
+    const at = (i) => mfcc[r * nFrames + Math.max(0, Math.min(nFrames - 1, i))];
+    const head = nFrames >= 2 * W + 1 ? slopeOf(at, nFrames, 0) : 0;
+    const tail = nFrames >= 2 * W + 1 ? slopeOf(at, nFrames, nFrames - (2 * W + 1)) : 0;
     for (let c = 0; c < nFrames; c++) {
-      const at = (i) => mfcc[r * nFrames + Math.max(0, Math.min(nFrames - 1, i))];
+      if (c < W || c >= nFrames - W) { d1[r * nFrames + c] = c < W ? head : tail; continue; }
       let num = 0;
       for (let d = 1; d <= W; d++) num += d * (at(c + d) - at(c - d));
-      const norm = 2 * (W * (W + 1) * (2 * W + 1) / 6);
       d1[r * nFrames + c] = num / norm;
     }
   }
@@ -202,8 +244,12 @@ export function extractFeatures(y) {
   for (let r = 0; r < N_MFCC; r++) feat.push(meanStd(col(mfcc, r, nFrames))[0]);
   for (let r = 0; r < N_MFCC; r++) feat.push(meanStd(col(mfcc, r, nFrames))[1]);
   for (let r = 0; r < N_MFCC; r++) feat.push(meanStd(col(d1, r, nFrames))[0]);
+  for (let r = 0; r < N_MFCC; r++) feat.push(meanStd(col(d1, r, nFrames))[1]);
   const { cent, rolloff, zcr, rms } = centroidRolloffZcrRms(y, nFrames, half, S);
-  feat.push(meanStd(cent)[0], meanStd(cent)[1], meanStd(rolloff)[0], meanStd(zcr)[0], meanStd(zcr)[1], meanStd(rms)[0], Math.max(...rms));
+  feat.push(meanStd(cent)[0], meanStd(cent)[1], meanStd(rolloff)[0],
+            meanStd(zcr)[0], meanStd(zcr)[1], meanStd(rms)[0], meanStd(rms)[1],
+            Math.max(...rms));
+  feat.push(y.length / SR);   // 时长（秒）：不同情境的喵长短不同
   return feat;
 }
 
@@ -270,12 +316,23 @@ export function extractF0Stats(y) {
   const n = vals.length;
   const sorted = [...vals].sort((a, b) => a - b);
   const med = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+  // 分位数与 numpy.percentile 一致：线性插值（不是取最近秩）
+  const pct = (p) => {
+    const pos = (n - 1) * p, lo = Math.floor(pos), hi = Math.ceil(pos);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+  };
   let m = 0; for (const v of vals) m += v; m /= n;
   let s = 0; for (const v of vals) s += (v - m) * (v - m); s = Math.sqrt(s / n);
+  // 抖动（相邻帧音高差的标准差）：应激叫声通常抖得更厉害
+  let jm = 0; const d = [];
+  for (let i = 1; i < n; i++) { const dv = vals[i] - vals[i - 1]; d.push(dv); jm += dv; }
+  jm /= Math.max(1, d.length);
+  let jitter = 0; for (const dv of d) jitter += (dv - jm) * (dv - jm);
+  jitter = Math.sqrt(jitter / Math.max(1, d.length));
   const t = vals.map((_, i) => i / (SR / 512));
   let mt = 0; for (const v of t) mt += v; mt /= n;
   let st = 0; for (const v of t) st += (v - mt) * (v - mt);
   let cov = 0; for (let i = 0; i < n; i++) cov += (t[i] - mt) * (vals[i] - m);
   const slope = n > 1 && st > 0 ? cov / st : 0;
-  return [med, s, slope];
+  return [med, s, slope, pct(0.1), pct(0.9), jitter];
 }
