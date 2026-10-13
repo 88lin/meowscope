@@ -48,6 +48,8 @@ jobs:
         run: (cd public && nohup python3 -m http.server 8931 &) ; sleep 2
       - name: UI 校验
         run: node scripts/ui_check.cjs
+      - name: 数据众筹校验（假麦克风 + unzip 真解压）
+        run: node scripts/contribute_check.cjs
 
   # 闸门 4：main 分支上自动发布到 gh-pages
   deploy:

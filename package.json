@@ -7,7 +7,8 @@
     "check:parity": "python3 scripts/parity_check.py",
     "check:assets": "node scripts/check_assets.cjs",
     "check:ui": "node scripts/ui_check.cjs",
-    "check": "npm run check:assets && npm run check:ui"
+    "check:contrib": "node scripts/contribute_check.cjs",
+    "check": "npm run check:assets && npm run check:ui && npm run check:contrib"
   },
   "devDependencies": {
     "playwright": "^1.49.0"

@@ -1,0 +1,50 @@
+name: 数据贡献 / Data contribution
+description: 提交猫叫音频样本（zip 由页面「帮它听更多猫的叫声」导出）
+labels: ["data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢贡献！请先在页面「帮它听更多猫的叫声 / Help it hear more cats」一节录样本、打好标签，点「打包下载」得到 zip；
+        然后在下方登记信息，**把 zip 拖进本 issue 的评论区**即可上传（GitHub 支持拖拽附件）。
+        提交即表示同意这些音频以 CC0-1.0 许可开放。
+
+        Thanks! Record clips on the site ("Help it hear more cats" section), download the zip,
+        fill in the details below, then drag the zip into a comment on this issue.
+
+  - type: input
+    id: zip
+    attributes:
+      label: zip 文件 / zip file
+      description: 页面导出的 meowscope-samples-*.zip（拖进评论区上传 / drag into a comment to upload）
+    validations:
+      required: true
+  - type: dropdown
+    id: contexts
+    attributes:
+      label: 包含哪些情境 / contexts included
+      multiple: true
+      options:
+        - 被刷毛 / brushing
+        - 等饭 / waiting for food
+        - 被隔离 / isolation
+        - 其他·不确定 / other
+  - type: input
+    id: breed
+    attributes:
+      label: 猫的品种 / breed
+      placeholder: 如：狸花猫 / e.g. tabby
+  - type: input
+    id: age
+    attributes:
+      label: 猫的年龄 / age
+      placeholder: 如：2 岁 / e.g. 2 years
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 许可确认 / license confirmation
+      options:
+        - label: 我确认这些音频可以 CC0-1.0（公有领域）许可自由使用，包括商业用途 / I confirm these clips may be used freely under CC0-1.0, including commercial use
+          required: true
+        - label: 我确认音频不含个人隐私内容（如清晰人声对话）/ I confirm the audio contains no private content (e.g. clear human speech)
+          required: true

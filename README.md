@@ -132,7 +132,8 @@ python3 scripts/parity_check.py  # JS↔Python 逐位对拍，不需要下载数
 |---|---|---|
 | 特征对拍 | `python3 scripts/parity_check.py` | JS 特征提取 ↔ Python librosa 是否一致（不需要数据集） |
 | 资源自洽 | `node scripts/check_assets.cjs` | index.html 引用的资源是否都存在、中英文案 key 是否一致 |
-| UI 渲染 | `node scripts/ui_check.cjs` | 真实浏览器里量：进度条有没有画出来、置信度环、移动端是否溢出、明暗对比度 |
+| UI 渲染 | `node scripts/ui_check.cjs` | 真实浏览器里量：进度条/频谱图画没画出来、置信度环、移动端是否溢出、明暗对比度 |
+| 数据众筹 | `node scripts/contribute_check.cjs` | 假麦克风录样本 → 打包 zip → 系统 unzip 真解压 → manifest 字段 → 音频不落 localStorage |
 
 UI 闸门存在的理由：只查「文字对比度」「几何溢出」抓不到**元素压根没画出来**的问题。
 进度条填充是个 `<span>`，行内元素会忽略 `width/height`，实际渲染是 0×0——
@@ -172,8 +173,9 @@ scripts/
   test_parity.cjs    # Node 对拍测试
   make_og_image.py   # 生成 OG 分享图
 docs/
-  share-card-example.png
+  share-card-example.png  # 分享卡片示例
 ```
+根目录另有 [CONTRIBUTING.md](CONTRIBUTING.md)（参与指南）与 `.github/ISSUE_TEMPLATE/data_contribution.yml`（数据贡献表单）。
 
 > 训练产物（`forest.json` / `features.js` / `metrics.json`）只有 `public/` 这一份来源；`scripts/train.py`、`export_js.py` 产出的新模型直接覆盖 `public/` 下的同名文件即可。
 
@@ -196,6 +198,16 @@ docs/
 
 除了通用模型，页面支持**纯本地个性化训练**：三个情境各录 3 段自家猫叫声，浏览器内用 softmax 回归训练专属分类头（复用同一条 95 维特征管线），存 localStorage，零上传。训练后可一键在「通用 / 专属」模型间切换。
 
+## 帮它听更多猫的叫声（数据贡献）
+
+模型只学过 21 只猫（缅因猫、欧洲短毛猫）——对狸花猫、橘猫、布偶……没有验证过。**这是目前对项目最有价值的贡献方式**，比代码更缺：
+
+1. 页面「帮它听更多猫的叫声」一节：选情境 → 录 1–5 秒（可多段）→ 可填品种/年龄
+2. 点「打包下载」得到 zip：音频原件 + 标签 + `manifest.json`——**本地生成，你不发出去就不存在上传**
+3. 开一个 [data contribution issue](.github/ISSUE_TEMPLATE/data_contribution.yml)，把 zip 拖进评论区
+
+贡献音频以 **CC0-1.0** 开放（含商业使用自由）。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## License
 
-代码 MIT。数据集版权归 CatMeows 作者（CC-BY-NC）。
+代码 MIT。数据集版权归 CatMeows 作者（CC-BY-NC）。社区贡献的音频为 CC0-1.0。
