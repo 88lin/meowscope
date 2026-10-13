@@ -295,6 +295,17 @@
     transition:width .7s cubic-bezier(.2,.8,.2,1);
   }
   .bar-row:first-child .bar-fill{background:var(--accent)}
+  /* 梅尔频谱图：把「模型看到的输入」直接画出来 */
+  .mel-cap{font-size:.75rem;color:var(--muted);margin:18px 0 8px;letter-spacing:.06em}
+  canvas#mel{width:100%;height:132px;display:block;border-radius:12px;background:var(--wave-bg)}
+  /* 声学特征摘要：音高/抖动/时长，结论为什么这么来的 */
+  .feat-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .feat-row .feat{
+    display:inline-flex;align-items:baseline;gap:6px;font-size:.78rem;color:var(--muted);
+    border:1px solid var(--line);border-radius:var(--pill);padding:5px 14px;background:var(--card-2);
+  }
+  .feat-row .feat b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .feat-row .feat i{font-style:normal}
 
   /* 最近几次结果 */
   .history{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
@@ -412,6 +423,7 @@
     .ring{width:52px;height:52px}
     .ring-num{font-size:.75rem}
     canvas#wave{height:64px}
+    canvas#mel{height:104px}
     table.metrics{font-size:.8rem}
     table.metrics th,table.metrics td{padding:7px 8px}
     footer .row{flex-direction:column}
@@ -574,7 +586,7 @@
     </div>
 
     <div id="result-empty" class="result-empty"><span data-i18n="result.empty"></span></div>
-    <div id="result" role="region" aria-label="分析结果">
+    <div id="result" role="region" data-i18n-aria="result.aria">
       <div class="verdict">
         <span class="ring-wrap" aria-hidden="true">
           <svg class="ring" viewBox="0 0 80 80">
@@ -592,6 +604,13 @@
         <span class="mode-tag" id="v-mode" style="display:none"></span>
       </div>
       <div class="bars" id="bars"></div>
+      <p class="mel-cap" data-i18n="mel.cap"></p>
+      <canvas id="mel" width="800" height="128" aria-hidden="true"></canvas>
+      <div class="feat-row" id="feat-row">
+        <span class="feat"><b id="feat-f0">—</b><i data-i18n="feat.f0"></i></span>
+        <span class="feat"><b id="feat-jit">—</b><i data-i18n="feat.jit"></i></span>
+        <span class="feat"><b id="feat-dur">—</b><i data-i18n="feat.dur"></i></span>
+      </div>
       <div class="share-row">
         <button id="btn-speak" class="ghost speak-btn" data-i18n="btn.speak"></button>
         <button id="btn-compare" class="ghost speak-btn" data-i18n="btn.compare"></button>
@@ -749,7 +768,7 @@
 </footer>
 
 <script type="module">
-import { extractFeatures, extractF0Stats } from './features.js';
+import { extractAll } from './features.js';
 import { t, applyLang } from './i18n.js';
 applyLang();
 /* ---------- 主题（暗色/浅色）与画布配色 ---------- */
@@ -776,6 +795,7 @@ function applyTheme(){
   if(mc) mc.setAttribute('content', dark ? '#171613' : '#d96a2b');
   // 画布是位图，必须重画才能跟上新配色
   if(lastWave) drawStatic(lastWave, lastDur); else drawIdle();
+  if(lastMelData) drawMel(lastMelData); else drawMelClear();
 }
 
 
@@ -822,6 +842,7 @@ const resultEl = document.getElementById('result');
 const barsEl = document.getElementById('bars');
 // 最近一次分析的结果，供分享卡片使用（仅存内存，不落盘）
 let lastWave = null, lastPreds = null, lastDur = 0, lastUnsure = false;
+let lastF0 = null, lastMelData = null;   // {mel: Float64Array, nFrames, nMels}
 
 /* ---------- metrics table ---------- */
 let metricsData = null;
@@ -891,6 +912,66 @@ function drawStatic(buf, duration){
     const h=Math.max(2, env[p]*gain);
     ctx2d.fillRect(p,(canvas.height-h)/2,1,h);
   }
+}
+
+/* ---------- 梅尔频谱图 ----------
+   features.js 的 melSpectrogram 输出布局是 mel[bin*nFrames + frame]，
+   已按 top_db=80 相对最大值归一化。绘制方向与 librosa.specshow 一致：
+   时间向左、低频在下。让用户直接看见「模型看到的输入」，
+   而不是只收到一个干巴巴的数字。 */
+const MEL_STOPS = {
+  light: ['#efe9dd', '#f7e3d3', '#d96a2b', '#b0521b'],
+  dark:  ['#332f28', '#3a2a1e', '#ec8a4e', '#f0a06b'],
+};
+function melLut(dark){
+  const hex = (h) => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const cols = MEL_STOPS[dark ? 'dark' : 'light'].map(hex);
+  const lut = new Uint8Array(256*3);
+  for(let i=0;i<256;i++){
+    const t = i/255*(cols.length-1), i0 = Math.min(cols.length-2, Math.floor(t)), f = t-i0;
+    for(let c=0;c<3;c++) lut[i*3+c] = Math.round(cols[i0][c] + (cols[i0+1][c]-cols[i0][c])*f);
+  }
+  return lut;
+}
+function drawMelClear(){
+  const cv=document.getElementById('mel'); if(!cv) return;
+  cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+}
+function drawMel(melData){
+  const cv=document.getElementById('mel');
+  if(!cv || !melData || !melData.mel || !melData.nFrames){ drawMelClear(); return; }
+  const x=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const {mel, nFrames, nMels}=melData;
+  // melSpectrogram 已做 top_db=80：值域 [max-80, max] dB
+  let maxV=-Infinity;
+  for(let i=0;i<mel.length;i++) if(mel[i]>maxV) maxV=mel[i];
+  const floorV=maxV-80;
+  const lut=melLut(effectiveDark());
+  const img=x.createImageData(W,H), d=img.data;
+  for(let px=0;px<W;px++){
+    const f0=Math.floor(px*nFrames/W), f1=Math.max(f0+1, Math.floor((px+1)*nFrames/W));
+    for(let py=0;py<H;py++){
+      const bin=Math.min(nMels-1, Math.floor((1-py/H)*nMels)); // 低频在下
+      let sum=0;
+      for(let f=f0;f<f1;f++) sum+=mel[bin*nFrames+f];
+      const t=Math.max(0, Math.min(1, (sum/(f1-f0)-floorV)/80));
+      const li=Math.round(t*255)*3, o=(py*W+px)*4;
+      d[o]=lut[li]; d[o+1]=lut[li+1]; d[o+2]=lut[li+2]; d[o+3]=255;
+    }
+  }
+  x.putImageData(img,0,0);
+}
+/* 声学特征摘要：把支撑判定的几个数字摆出来 */
+function setFeat(f0, durSec){
+  const f=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  if(f0){ f('feat-f0', Math.round(f0[0])+' Hz'); f('feat-jit', Math.round(f0[5])+' Hz'); }
+  else { f('feat-f0','—'); f('feat-jit','—'); }
+  f('feat-dur', durSec!=null ? durSec.toFixed(1)+' s' : '—');
+}
+function showMelUI(show){
+  const cap=document.querySelector('.mel-cap'), row=document.getElementById('feat-row');
+  if(cap) cap.style.display = show ? '' : 'none';
+  if(row) row.style.display = show ? '' : 'none';
 }
 
 /* ---------- decode any audio to 22.05k mono Float32 ---------- */
@@ -967,14 +1048,17 @@ function predict(feat){
   return forestData.classes.map((c,i)=>({c, p:sums[i]/tot})).sort((a,b)=>b.p-a.p);
 }
 
-function showResult(preds, durSec, rms){
+function showResult(preds, durSec, f0, melData){
   resultEl.style.display='block';
   const emptyEl=document.getElementById('result-empty');
   if(emptyEl) emptyEl.style.display='none';
   const top=preds[0];
   const verdict=document.querySelector('.verdict');
-  const barsWrap=document.getElementById('bars');
   const btn=document.getElementById('btn-speak');
+  // 频谱图 + 声学特征：无论确定与否都展示——不确定时它们更能帮上忙
+  showMelUI(true);
+  drawMel(melData||null);
+  setFeat(f0||null, durSec);
   barsEl.innerHTML = preds.map(p=>`
     <div class="bar-row">
       <span class="name">${LABELS[p.c].emoji} ${LName(p.c)}</span>
@@ -1050,7 +1134,7 @@ async function analyze(blob, label){
     stateEl.textContent=t('st.analyzing');
     resultEl.style.display='none';
     const data=await decodeToBuffer(blob);
-    if(data.length<22050*0.3){ stateEl.textContent=t('err.too_short'); drawIdle(); return; }
+    if(data.length<22050*0.3){ stateEl.textContent=t('err.too_short'); drawIdle(); drawMelClear(); setFeat(null,null); showMelUI(false); return; }
     // energy gate: near-silence
     let e=0; for(let i=0;i<data.length;i++) e+=data[i]*data[i];
     const rms=Math.sqrt(e/data.length);
@@ -1075,37 +1159,42 @@ async function analyze(blob, label){
       document.getElementById('v-meta').textContent='';
       barsEl.innerHTML='';
       lastWave=null; lastPreds=null; lastUnsure=false;
+      lastF0=null; lastMelData=null;
+      drawMelClear(); setFeat(null,null); showMelUI(false);
       stateEl.textContent=t('st.no_sound');
       return;
     }
     const t0=performance.now();
-    const feat=extractFeatures(Float64Array.from(data));
-    feat.push(...extractF0Stats(Float64Array.from(data)));
+    const {feat, f0, mel, nFrames, nMels} = extractAll(data);
     if(!(usePersonal && personalModel)) await loadForest();
     const preds = (usePersonal && personalModel) ? predictPersonal(feat) : predict(feat);
     lastWave = data; lastPreds = preds; lastDur = data.length/22050;
+    lastF0 = f0;
+    lastMelData = (mel && nFrames) ? {mel, nFrames, nMels} : null;
     if(usePersonal && personalModel){
       document.getElementById('v-mode').textContent=t('tag.personal');
       document.getElementById('v-mode').style.display='';
     } else document.getElementById('v-mode').style.display='none';
     console.log('inference', (performance.now()-t0).toFixed(0)+'ms');
-    showResult(preds, data.length/22050, rms);
-    pushHistory(preds, data.length/22050, data);
+    showResult(preds, data.length/22050, f0, lastMelData);
+    pushHistory(preds, data.length/22050, data, f0, lastMelData);
   }catch(e){
     console.error(e);
     stateEl.textContent=t('err.decode');
-    drawIdle();
+    drawIdle(); drawMelClear(); setFeat(null,null); showMelUI(false);
   }finally{
     busy=false;
   }
 }
 
 /* ---------- 最近几次结果（只存内存，不落盘、不上传） ---------- */
-const history=[];   // {preds, dur, unsure, personal, time, wave}
-function pushHistory(preds, durSec, wave){
+const history=[];   // {preds, dur, unsure, personal, time, wave, f0, mel}
+function pushHistory(preds, durSec, wave, f0, melData){
   history.unshift({preds, dur:durSec, unsure:lastUnsure,
     personal:!!(usePersonal&&personalModel), time:new Date(),
-    wave: wave ? wave.slice(0) : null});
+    wave: wave ? wave.slice(0) : null,
+    f0: f0 || null,
+    mel: melData ? {mel: melData.mel.slice(0), nFrames: melData.nFrames, nMels: melData.nMels} : null});
   while(history.length>5) history.pop();
   renderHistory();
 }
@@ -1130,9 +1219,10 @@ function renderHistory(){
       const h=history[+b.dataset.i];
       if(!h) return;
       lastPreds=h.preds; lastUnsure=h.unsure; lastDur=h.dur;
+      lastF0=h.f0; lastMelData=h.mel;
       lastWave = h.wave ? Float32Array.from(h.wave) : null;
       if(lastWave) drawStatic(lastWave, h.dur);
-      showResult(h.preds, h.dur, 0);
+      showResult(h.preds, h.dur, h.f0, h.mel);
       resultEl.scrollIntoView({block:'nearest', behavior:'smooth'});
     };
   });
@@ -1455,6 +1545,32 @@ function drawWaveform(x, buf, a, b, w, h){
     roundRect(x, px, mid-hh/2, bw*0.6, hh, bw*0.3); x.fill();
   }
 }
+/* 分享卡片里的梅尔频谱图条。注意 putImageData 不受 canvas transform 影响，
+   所以这里按 2x 超采样直接生成设备像素，再放到逻辑坐标 ×CARD_S 处。 */
+function drawMelStrip(x, melData, a, b, w, h){
+  if(!melData || !melData.mel || !melData.nFrames) return;
+  const S=CARD_S, W=Math.max(1,Math.round(w*S)), H=Math.max(1,Math.round(h*S));
+  const {mel, nFrames, nMels}=melData;
+  let maxV=-Infinity;
+  for(let i=0;i<mel.length;i++) if(mel[i]>maxV) maxV=mel[i];
+  const floorV=maxV-80;
+  const cols=['#efe9dd','#f7e3d3','#d96a2b','#b0521b'].map(h=>[
+    parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]);
+  const img=x.createImageData(W,H), d=img.data;
+  for(let px=0;px<W;px++){
+    const f0=Math.floor(px*nFrames/W), f1=Math.max(f0+1, Math.floor((px+1)*nFrames/W));
+    for(let py=0;py<H;py++){
+      const bin=Math.min(nMels-1, Math.floor((1-py/H)*nMels)); // 低频在下
+      let mx=-Infinity;
+      for(let f=f0;f<f1;f++){ const v=mel[bin*nFrames+f]; if(v>mx) mx=v; }
+      const t=Math.max(0, Math.min(1, (mx-floorV)/80))*(cols.length-1);
+      const i0=Math.min(cols.length-2, Math.floor(t)), fr=t-i0, o=(py*W+px)*4;
+      for(let c=0;c<3;c++) d[o+c]=Math.round(cols[i0][c]+(cols[i0+1][c]-cols[i0][c])*fr);
+      d[o+3]=255;
+    }
+  }
+  x.putImageData(img, Math.round(a*S), Math.round(b*S));
+}
 function buildShareCanvas(line){
   const cv=document.createElement('canvas');
   cv.width=CARD_W*CARD_S; cv.height=CARD_H*CARD_S;
@@ -1536,8 +1652,9 @@ function buildShareCanvas(line){
     x.textAlign='right'; x.fillText(`${Math.round(p.p*100)}%`, CARD_W-64, y+18); x.textAlign='left';
   });
 
-  // 波形
-  drawWaveform(x, lastWave, 64, 512, CARD_W-128, 52);
+  // 梅尔频谱图（模型看到的输入）+ 波形（振幅节奏）
+  drawMelStrip(x, lastMelData, 64, 504, CARD_W-128, 44);
+  drawWaveform(x, lastWave, 64, 556, CARD_W-128, 26);
 
   // 页脚
   x.font=`400 18px ${SANS}`; x.fillStyle=C.muted;
@@ -1591,17 +1708,20 @@ document.getElementById('lang-btn').onclick=()=>{
 
 /* ---------- PWA: register service worker for offline install ---------- */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('./sw.js?v=8').catch(()=>{});
+  navigator.serviceWorker.register('./sw.js?v=9').catch(()=>{});
 }
 
 // test hooks (used by automated e2e; harmless in production)
-window.__ms={decodeToBuffer, extractFeatures, extractF0Stats, predict, predictPersonal:()=>predictPersonal, trainPersonal, pSamples:()=>pSamples, lsSave, pRender, renderMetrics,
-  rerenderResult:()=>{ if(lastPreds) showResult(lastPreds, lastDur, 0); },
+window.__ms={decodeToBuffer, extractAll, predict, predictPersonal:()=>predictPersonal, trainPersonal, pSamples:()=>pSamples, lsSave, pRender, renderMetrics,
+  rerenderResult:()=>{ if(lastPreds) showResult(lastPreds, lastDur, lastF0, lastMelData); },
   renderHistory,
   buildShareCanvas,
+  drawMel,
   get usePersonal(){return usePersonal;}, set usePersonal(v){usePersonal=v;},
   get personalModel(){return personalModel;}, get preds(){return lastPreds;},
   get unsure(){return lastUnsure;}, set unsure(v){lastUnsure=v;},
+  get melData(){return lastMelData;}, set melData(v){lastMelData=v;},
+  get f0(){return lastF0;},
   predictPersonalFeat:(ft)=>predictPersonal(ft)};
 pRender();
 renderHistory();

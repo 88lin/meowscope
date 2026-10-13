@@ -150,6 +150,12 @@ const I18N = {
     'share.privacy': 'Zero uploads · 100% on-device inference',
     'share.copied': 'Image copied to clipboard',
     'share.saved': 'Image saved',
+    // result panel extras
+    'mel.cap': 'Mel spectrogram — the model’s actual input',
+    'feat.f0': 'median pitch',
+    'feat.jit': 'pitch jitter',
+    'feat.dur': 'duration',
+    'result.aria': 'Analysis result',
     // more sites
     'more.h2': 'More from the author',
     'more.h2s': 'MY OTHER SITES',
@@ -160,16 +166,6 @@ const I18N = {
     'more.s4': 'A curated directory of 70+ free online mini tools.',
     'more.s5': 'Source code and other open-source projects.',
     'more.s6': 'Personality, relationship and career-interest tests.',
-    // more sites
-    'more.h2': '作者的其他站点',
-    'more.h2s': 'MY OTHER SITES',
-    'more.intro': '这个分类器是我做的众多小工具之一。如果你觉得好用，下面这些可能也合你口味——全部免费、无需注册。',
-    'more.s1': '88lin 的项目、实践与探索。',
-    'more.s2': '站主最近在写什么、做什么。',
-    'more.s3': '作品集，同时承接 AI、自动化与网站定制。',
-    'more.s4': '70+ 个免费在线小工具的导航站。',
-    'more.s5': '源码与其他开源项目。',
-    'more.s6': '性格、恋爱与职业兴趣测试合集。',
     // footer
     'f.left': 'MeowScope · Dataset CatMeows (Zenodo 4008297, CC-BY-NC) · Literature: Nicastro & Owren 2003/2004, Prato-Previde 2020, Schötz 2023, Sci. Rep. 2025 · For research & entertainment only',
     'f.license': 'MIT License',
@@ -252,7 +248,7 @@ const I18N = {
     'card.F.h': '等饭',
     'card.F.p': '站在食盆前等开饭的喵。节奏往往急促重复，是最有辨识度的类别。',
     'card.I.h': '被隔离',
-    'card.I.p': '被独自留在陌生环境中的喵。鸣叫更长、音更高， distress 特征明显。',
+    'card.I.p': '被独自留在陌生环境中的喵。鸣叫更长、音更高，应激特征明显。',
     'h.h2': '诚实的数据', 'h.h2s': 'REAL NUMBERS, NO HYPE',
     'h.intro': '很多宠物翻译产品宣传 90%+ 准确率，但那是「同一只猫的录音再喂回去」的成绩。我们按<strong>猫为单位</strong>划分训练/测试（模型从没听过测试集里那只猫的声音），这才是你家的猫第一次叫时的真实水平：',
     'h.th.method': '验证方式', 'h.th.acc': '准确率', 'h.th.note': '说明',
@@ -311,6 +307,12 @@ const I18N = {
     'share.privacy': '音频零上传 · 100% 本地推理',
     'share.copied': '图片已复制到剪贴板',
     'share.saved': '图片已保存',
+    // 结果区补充
+    'mel.cap': '梅尔频谱图 · 模型真正看到的输入',
+    'feat.f0': '音高中位数',
+    'feat.jit': '音高抖动',
+    'feat.dur': '时长',
+    'result.aria': '分析结果',
     'f.left': '喵语通 MeowScope · 数据集 CatMeows（Zenodo 4008297，CC-BY-NC）· 文献：Nicastro & Owren 2003/2004, Prato-Previde 2020, Schötz 2023, Sci. Rep. 2025 · 仅供研究与娱乐',
     'f.license': 'MIT License',
   }
@@ -340,6 +342,10 @@ function applyLang(){
     const k=el.dataset.i18n;
     if(k==='hero.lead'||k==='h.note'||k==='p.intro'||k==='h.calib.p') el.innerHTML=t(k);
     else el.textContent=t(k);
+  });
+  // aria-label 之类的非文本属性（textContent 改不到它们）
+  document.querySelectorAll('[data-i18n-aria]').forEach(el=>{
+    el.setAttribute('aria-label', t(el.dataset.i18nAria));
   });
   // 正在播放的示例按钮：换语言时保留 ⏸ 标记
   document.querySelectorAll('.demo-btn.playing').forEach(el=>{ el.textContent += ' ⏸'; });

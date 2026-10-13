@@ -1,6 +1,6 @@
 /* MeowScope service worker — network-first so users always get the latest page;
    cache only as offline fallback. Bump CACHE whenever public/ assets change. */
-const CACHE='meowscope-v8';
+const CACHE='meowscope-v9';
 const ASSETS=[
   './','./index.html','./features.js','./i18n.js',
   './forest.json','./metrics.json','./manifest.webmanifest',
