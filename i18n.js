@@ -156,6 +156,33 @@ const I18N = {
     'feat.jit': 'pitch jitter',
     'feat.dur': 'duration',
     'result.aria': 'Analysis result',
+    // data contribution
+    'c.h2': 'Help it hear more cats',
+    'c.h2s': 'DATA CONTRIBUTION',
+    'c.intro': 'This model has only learned from 21 cats (Maine Coons and European shorthairs). If you can, record a few meows from your own cat, label them yourself, and submit the download. Everything happens locally — no file is created until you hit “Pack & download”. Contributed audio is released under <strong>CC0</strong>.',
+    'c.f.label': 'Context',
+    'c.f.breed': 'Breed',
+    'c.f.breed.ph': 'e.g. tabby, ragdoll…',
+    'c.f.age': 'Age',
+    'c.f.age.ph': 'e.g. 2 years',
+    'c.btn.record': '🎙️ Record a clip',
+    'c.btn.recording': '● Recording… (tap to stop, max 5s)',
+    'c.btn.export': '⬇️ Pack & download (zip)',
+    'c.btn.clear': 'Clear',
+    'c.btn.play': 'Play',
+    'c.btn.del': 'Delete',
+    'c.hint': '1–5 seconds, quiet room',
+    'c.label.brushing': '🪮 Being brushed',
+    'c.label.waiting_for_food': '🍚 Waiting for food',
+    'c.label.isolation': '🚪 Being isolated',
+    'c.label.other': '❓ Other / not sure',
+    'c.note': 'After downloading the zip, open a <a href="https://github.com/88lin/meowscope/issues/new?template=data_contribution.yml" target="_blank" rel="noopener">data contribution issue</a> (template ready) and attach the file. The zip contains only the audio, your labels, and the optional breed/age you typed — no identity info, and nothing is uploaded until you send it yourself.',
+    'c.status.empty': 'No clips yet — hit “Record a clip”.',
+    'c.status.n': (n)=>`${n} clip(s) ready. Keep recording, then pack & download.`,
+    'c.status.packing': 'Packing…',
+    'c.status.exported': '✅ Downloaded. Now attach it to a contribution issue — thank you!',
+    'c.status.fail': 'Packing failed — please try again.',
+    'c.readme.txt': 'MeowScope contribution pack\n===========================\n\nContents:\n  samples/*.{webm,mp3,...}  the recordings (original browser format)\n  manifest.json              labels, durations, optional breed/age, license\n\nLicense: CC0-1.0 (public domain dedication) — by submitting this pack\nyou agree it may be used freely, including in commercial products.\nNo identity information was collected.\n\nSubmit: open a data contribution issue on\nhttps://github.com/88lin/meowscope and attach this zip.\nThank you for helping cats be heard!',
     // more sites
     'more.h2': 'More from the author',
     'more.h2s': 'MY OTHER SITES',
@@ -313,6 +340,33 @@ const I18N = {
     'feat.jit': '音高抖动',
     'feat.dur': '时长',
     'result.aria': '分析结果',
+    // 数据众筹
+    'c.h2': '帮它听更多猫的叫声',
+    'c.h2s': 'DATA CONTRIBUTION',
+    'c.intro': '这个模型只学过 21 只猫（缅因猫和欧洲短毛猫）的声音。如果你愿意，可以录几段你家猫的叫声，按你的判断标注情境，打包下载后提交给我们。所有处理都在本地完成——你点「打包下载」之前什么文件都不会生成。贡献的音频将以 <strong>CC0</strong> 许可开放。',
+    'c.f.label': '情境',
+    'c.f.breed': '品种',
+    'c.f.breed.ph': '如：狸花猫、布偶猫…',
+    'c.f.age': '年龄',
+    'c.f.age.ph': '如：2 岁',
+    'c.btn.record': '🎙️ 录一段',
+    'c.btn.recording': '● 录音中…（再点一次停止，最长 5 秒）',
+    'c.btn.export': '⬇️ 打包下载（zip）',
+    'c.btn.clear': '清空',
+    'c.btn.play': '试听',
+    'c.btn.del': '删除',
+    'c.hint': '1–5 秒，安静环境',
+    'c.label.brushing': '🪮 被刷毛',
+    'c.label.waiting_for_food': '🍚 等饭',
+    'c.label.isolation': '🚪 被隔离',
+    'c.label.other': '❓ 其他 / 不确定',
+    'c.note': '下载 zip 后，开一个<a href="https://github.com/88lin/meowscope/issues/new?template=data_contribution.yml" target="_blank" rel="noopener">数据贡献 issue</a>（模板已备好）并把文件挂上去。zip 里只有音频、你打的标签和可选的品种/年龄——不含任何身份信息，你不发出去就什么都不会上传。',
+    'c.status.empty': '还没录样本——点「录一段」开始。',
+    'c.status.n': (n)=>`已录 ${n} 段，可以继续录，录完点「打包下载」。`,
+    'c.status.packing': '正在打包…',
+    'c.status.exported': '✅ 已下载。把 zip 挂到数据贡献 issue 上就完成了，谢谢！',
+    'c.status.fail': '打包失败，请再试一次。',
+    'c.readme.txt': '喵语通数据贡献包\n===============\n\n内容说明：\n  samples/*.{webm,mp3,...}  录音原件（浏览器录制的原始格式）\n  manifest.json             标签、时长、可选的品种/年龄、许可信息\n\n许可：CC0-1.0（公有领域贡献）——提交此包即表示同意其可被自由使用，\n包括用于商业产品。本包不含任何身份信息。\n\n提交方式：在 https://github.com/88lin/meowscope 开一个数据贡献 issue，\n附上本 zip 文件。感谢帮更多猫被听见！',
     'f.left': '喵语通 MeowScope · 数据集 CatMeows（Zenodo 4008297，CC-BY-NC）· 文献：Nicastro & Owren 2003/2004, Prato-Previde 2020, Schötz 2023, Sci. Rep. 2025 · 仅供研究与娱乐',
     'f.license': 'MIT License',
   }
@@ -340,21 +394,27 @@ function applyLang(){
   setMeta('meta[name="twitter:description"]', t('meta.desc'));
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k=el.dataset.i18n;
-    if(k==='hero.lead'||k==='h.note'||k==='p.intro'||k==='h.calib.p') el.innerHTML=t(k);
+    if(k==='hero.lead'||k==='h.note'||k==='p.intro'||k==='h.calib.p'||k==='c.note') el.innerHTML=t(k);
     else el.textContent=t(k);
   });
-  // aria-label 之类的非文本属性（textContent 改不到它们）
+  // aria-label / placeholder 之类的非文本属性（textContent 改不到它们）
   document.querySelectorAll('[data-i18n-aria]').forEach(el=>{
     el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    el.setAttribute('placeholder', t(el.dataset.i18nPh));
   });
   // 正在播放的示例按钮：换语言时保留 ⏸ 标记
   document.querySelectorAll('.demo-btn.playing').forEach(el=>{ el.textContent += ' ⏸'; });
   // select options
   const sel=document.getElementById('p-label');
   if(sel) [...sel.options].forEach(o=>o.textContent=t('p.label.'+o.value));
+  const csel=document.getElementById('c-label');
+  if(csel) [...csel.options].forEach(o=>o.textContent=t('c.label.'+o.value));
   // dynamic bits
   document.getElementById('lang-btn').textContent=t('lang.btn');
   try{ window.__ms && window.__ms.pRender(); }catch(e){}
+  try{ window.__ms && window.__ms.cRender(); }catch(e){}
   try{ window.__ms && window.__ms.renderMetrics(); }catch(e){}
   try{ window.__ms && window.__ms.rerenderResult(); }catch(e){}
   try{ window.__ms && window.__ms.renderHistory(); }catch(e){}

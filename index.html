@@ -348,6 +348,21 @@
   .p-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .p-controls select{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
   .p-status{margin-top:12px;font-size:.86rem;color:var(--muted)}
+  /* 数据众筹 */
+  .c-form{display:flex;flex-direction:column;gap:12px}
+  .c-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .c-row label{font-size:.86rem;color:var(--ink);font-weight:600}
+  .c-row select,.c-row input{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+  .c-row input{flex:1;min-width:140px}
+  .c-hint-inline{font-size:.78rem;color:var(--muted)}
+  .c-list{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .c-list li{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card);font-size:.86rem}
+  .c-list .c-tag{font-size:.72rem;font-weight:600;border-radius:999px;padding:2px 10px;background:var(--accent-soft);color:var(--accent-text);white-space:nowrap}
+  .c-list .c-dur{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .c-list .c-acts{margin-left:auto;display:flex;gap:6px}
+  .c-list .c-acts button{font-size:.78rem;padding:5px 12px;min-height:32px}
+  .c-note{margin-top:14px;font-size:.8rem;color:var(--muted);line-height:1.6}
+  .c-note a{color:var(--accent-text)}
   .mode-tag{margin-left:auto;font-size:.72rem;border:1px solid var(--accent);color:var(--accent-text);border-radius:999px;padding:3px 10px;white-space:nowrap}
   .lang-btn{font-size:.8rem;padding:8px 16px;border-radius:999px;min-height:44px;border:1px solid var(--line);letter-spacing:.05em}
   @media (max-width:480px){
@@ -644,6 +659,39 @@
         <button id="p-reset" class="ghost" data-i18n="p.btn.reset"></button>
       </div>
       <div class="p-status" id="p-status"></div>
+    </div>
+  </section>
+
+  <section id="contribute">
+    <h2><span data-i18n="c.h2"></span> <small data-i18n="c.h2s"></small></h2>
+    <p class="body" data-i18n="c.intro"></p>
+    <div class="personal-box">
+      <div class="c-form">
+        <div class="c-row">
+          <label data-i18n="c.f.label"></label>
+          <select id="c-label">
+            <option value="brushing"></option>
+            <option value="waiting_for_food"></option>
+            <option value="isolation"></option>
+            <option value="other"></option>
+          </select>
+          <button id="c-record" class="ghost" data-i18n="c.btn.record"></button>
+          <span class="c-hint-inline" data-i18n="c.hint"></span>
+        </div>
+        <div class="c-row">
+          <label data-i18n="c.f.breed"></label>
+          <input id="c-breed" type="text" maxlength="40" data-i18n-ph="c.f.breed.ph">
+          <label data-i18n="c.f.age"></label>
+          <input id="c-age" type="text" maxlength="20" data-i18n-ph="c.f.age.ph">
+        </div>
+      </div>
+      <div class="p-status" id="c-status"></div>
+      <ul class="c-list" id="c-list"></ul>
+      <div class="p-controls">
+        <button id="c-export" class="ghost" disabled data-i18n="c.btn.export"></button>
+        <button id="c-clear" class="ghost" disabled data-i18n="c.btn.clear"></button>
+      </div>
+      <p class="c-note" data-i18n="c.note"></p>
     </div>
   </section>
 
@@ -1701,6 +1749,162 @@ function downloadBlob(blob, name){
   setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
 }
 
+/* ---------- 数据众筹：录几段你家猫的叫声，打包下载后提交 ----------
+   隐私设计：音频只进内存数组，不碰 localStorage；只有用户点「打包下载」
+   才会生成文件。zip 用 stored 模式手写——webm/mp3 本身就是压缩格式，
+   再 deflate 收益接近零，还省掉一个压缩库依赖。 */
+const C_LABEL_KEYS=['brushing','waiting_for_food','isolation','other'];
+let cSamples=[];        // {blob, label, dur, mime, ext}
+let cStream=null, cRec=null, cChunks=[];
+let cPlaying=null;      // 正在试听的按钮（全局最多一个，避免叠加播放与对象 URL 泄漏）
+function cStopPlay(){
+  if(cPlaying && cPlaying._audio){
+    cPlaying._audio.pause();
+    URL.revokeObjectURL(cPlaying._audio.src);
+    cPlaying._audio=null;
+    cPlaying.textContent='▶';
+  }
+  cPlaying=null;
+}
+function cExt(mime){
+  if(!mime) return 'webm';
+  if(mime.includes('ogg')) return 'ogg';
+  if(mime.includes('mpeg')||mime.includes('mp3')) return 'mp3';
+  if(mime.includes('wav')) return 'wav';
+  if(mime.includes('mp4')) return 'm4a';
+  return 'webm';
+}
+function cRender(){
+  const list=document.getElementById('c-list');
+  const statusEl=document.getElementById('c-status');
+  const expBtn=document.getElementById('c-export');
+  const clrBtn=document.getElementById('c-clear');
+  list.innerHTML='';
+  if(!cSamples.length){
+    statusEl.textContent=t('c.status.empty');
+    expBtn.disabled=true; clrBtn.disabled=true;
+    return;
+  }
+  statusEl.textContent=t('c.status.n', cSamples.length);
+  expBtn.disabled=false; clrBtn.disabled=false;
+  cSamples.forEach((s,i)=>{
+    const li=document.createElement('li');
+    const tag=document.createElement('span'); tag.className='c-tag';
+    tag.textContent=t('c.label.'+s.label);
+    const dur=document.createElement('span'); dur.className='c-dur';
+    dur.textContent=s.dur.toFixed(1)+'s';
+    const acts=document.createElement('span'); acts.className='c-acts';
+    const play=document.createElement('button'); play.className='ghost'; play.textContent='▶';
+    play.title=t('c.btn.play');
+    play.onclick=()=>{
+      if(cPlaying===play){ cStopPlay(); return; }
+      cStopPlay();                       // 停掉上一段，避免两段同时响
+      const a=new Audio(URL.createObjectURL(s.blob));
+      a.onended=()=>{ if(cPlaying===play) cStopPlay(); };
+      a.play().catch(()=>{ if(cPlaying===play) cStopPlay(); });
+      play._audio=a; cPlaying=play; play.textContent='⏸';
+    };
+    const del=document.createElement('button'); del.className='ghost'; del.textContent='✕';
+    del.title=t('c.btn.del');
+    del.onclick=()=>{ if(cPlaying===play) cStopPlay(); cSamples.splice(i,1); cRender(); };
+    acts.append(play,del);
+    li.append(tag,dur,acts);
+    list.appendChild(li);
+  });
+}
+document.getElementById('c-record').onclick=async()=>{
+  const btn=document.getElementById('c-record');
+  const statusEl=document.getElementById('c-status');
+  if(cRec && cRec.state==='recording'){ cRec.stop(); return; }
+  try{ cStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
+  catch(e){ statusEl.textContent=t('err.mic'); return; }
+  cRec=new MediaRecorder(cStream); cChunks=[];
+  cRec.ondataavailable=e=>cChunks.push(e.data);
+  const t0=performance.now();
+  cRec.onstop=()=>{
+    cStream.getTracks().forEach(tr=>tr.stop());
+    const dur=(performance.now()-t0)/1000;
+    const mime=cRec.mimeType||'audio/webm';
+    cStopPlay();                         // 新样本入列前停掉试听，避免列表重建后失控
+    cSamples.push({blob:new Blob(cChunks,{type:mime}),
+      label:document.getElementById('c-label').value, dur, mime, ext:cExt(mime)});
+    btn.textContent=t('c.btn.record');
+    cRender();
+  };
+  cRec.start();
+  btn.textContent=t('c.btn.recording');
+  setTimeout(()=>{ if(cRec && cRec.state==='recording') cRec.stop(); }, 5000);
+};
+document.getElementById('c-clear').onclick=()=>{ cStopPlay(); cSamples=[]; cRender(); };
+document.getElementById('c-export').onclick=async()=>{
+  if(!cSamples.length) return;
+  const statusEl=document.getElementById('c-status');
+  statusEl.textContent=t('c.status.packing');
+  try{
+    const d=new Date();
+    const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+    const files=[];
+    for(let i=0;i<cSamples.length;i++){
+      const s=cSamples[i];
+      const name=`samples/${String(i+1).padStart(3,'0')}_${s.label}.${s.ext}`;
+      files.push({name, data:new Uint8Array(await s.blob.arrayBuffer())});
+    }
+    const manifest={ tool:'meowscope-contribution', version:1, created_at:d.toISOString(),
+      license:'CC0-1.0',
+      cat:{ breed:document.getElementById('c-breed').value.trim()||null,
+            age:document.getElementById('c-age').value.trim()||null },
+      samples:cSamples.map((s,i)=>({
+        file:`samples/${String(i+1).padStart(3,'0')}_${s.label}.${s.ext}`,
+        label:s.label, duration_s:+s.dur.toFixed(2), mime:s.mime })) };
+    files.push({name:'manifest.json', data:new TextEncoder().encode(JSON.stringify(manifest,null,1))});
+    files.push({name:'README.txt', data:new TextEncoder().encode(t('c.readme.txt'))});
+    downloadBlob(zipStore(files), `meowscope-samples-${stamp}.zip`);
+    statusEl.textContent=t('c.status.exported');
+  }catch(e){
+    console.error(e);
+    statusEl.textContent=t('c.status.fail');
+  }
+};
+/* 最小 ZIP 写入器（stored，不压缩）。格式：local header + data + central directory + EOCD。 */
+const CRC_TABLE=(()=>{ const t=new Uint32Array(256);
+  for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[n]=c; }
+  return t; })();
+function crc32(buf){ let c=0xFFFFFFFF; for(let i=0;i<buf.length;i++) c=CRC_TABLE[(c^buf[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zipStore(files){
+  const enc=new TextEncoder();
+  const chunks=[]; let offset=0;
+  const push=(bytes)=>{ chunks.push(bytes); offset+=bytes.length; };
+  const central=[];
+  for(const f of files){
+    const name=enc.encode(f.name);
+    const crc=crc32(f.data), size=f.data.length;
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0,true);
+    lh.setUint16(8,0,true);                    // method 0 = stored
+    lh.setUint16(10,0,true); lh.setUint16(12,0x0021,true);  // time, date(1980-01-01)
+    lh.setUint32(14,crc,true); lh.setUint32(18,size,true); lh.setUint32(22,size,true);
+    lh.setUint16(26,name.length,true); lh.setUint16(28,0,true);
+    const localStart=offset;
+    push(new Uint8Array(lh.buffer)); push(name); push(f.data);
+    const cd=new DataView(new ArrayBuffer(46));
+    cd.setUint32(0,0x02014b50,true); cd.setUint16(4,20,true); cd.setUint16(6,20,true);
+    cd.setUint16(8,0,true); cd.setUint16(10,0,true); cd.setUint16(12,0,true); cd.setUint16(14,0x0021,true);
+    cd.setUint32(16,crc,true); cd.setUint32(20,size,true); cd.setUint32(24,size,true);
+    cd.setUint16(28,name.length,true); cd.setUint16(30,0,true); cd.setUint16(32,0,true);
+    cd.setUint16(34,0,true); cd.setUint16(36,0,true); cd.setUint32(38,0,true);
+    cd.setUint32(42,localStart,true);
+    central.push(new Uint8Array(cd.buffer)); central.push(name);
+  }
+  let cdSize=0;
+  for(const c of central){ push(c); cdSize+=c.length; }
+  const eocd=new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0,0x06054b50,true); eocd.setUint16(4,0,true); eocd.setUint16(6,0,true);
+  eocd.setUint16(8,files.length,true); eocd.setUint16(10,files.length,true);
+  eocd.setUint32(12,cdSize,true); eocd.setUint32(16,offset-cdSize,true); eocd.setUint16(20,0,true);
+  push(new Uint8Array(eocd.buffer));
+  return new Blob(chunks,{type:'application/zip'});
+}
+
 /* ---------- language toggle ---------- */
 document.getElementById('lang-btn').onclick=()=>{
   window.__i18n.LANG = window.__i18n.LANG==='zh' ? 'en' : 'zh';
@@ -1708,7 +1912,7 @@ document.getElementById('lang-btn').onclick=()=>{
 
 /* ---------- PWA: register service worker for offline install ---------- */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('./sw.js?v=9').catch(()=>{});
+  navigator.serviceWorker.register('./sw.js?v=11').catch(()=>{});
 }
 
 // test hooks (used by automated e2e; harmless in production)
@@ -1722,8 +1926,11 @@ window.__ms={decodeToBuffer, extractAll, predict, predictPersonal:()=>predictPer
   get unsure(){return lastUnsure;}, set unsure(v){lastUnsure=v;},
   get melData(){return lastMelData;}, set melData(v){lastMelData=v;},
   get f0(){return lastF0;},
+  cRender, cSamples:()=>cSamples, zipStore,
+  get cPlaying(){return !!cPlaying;},
   predictPersonalFeat:(ft)=>predictPersonal(ft)};
 pRender();
+cRender();
 renderHistory();
 applyTheme();
 stateEl.textContent=t('state.ready');
