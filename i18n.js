@@ -2,6 +2,16 @@
 const I18N = {
   en: {
     // meta
+    'a11y.skip': '跳到主要内容',
+    'nav.how': '听得懂什么',
+    'nav.numbers': '诚实的数据',
+    'nav.personal': '教它认识你家猫',
+    'theme.toDark': 'Switch to dark mode',
+    'theme.toLight': 'Switch to light mode',
+    'drop.hint': '松手即可分析这段音频',
+    'hint.key': '按空格键可开始/停止录音。',
+    'btn.compare': '🔊 听听这类示例',
+    'history.title': '最近几次（点击可回看）',
     'doc.title': 'MeowScope — Understand what your cat is saying, right in your browser',
     'meta.desc': 'A cat meow context classifier that runs entirely in your browser: record or upload, on-device AI inference, zero uploads.',
     'lang.btn': '中文',
@@ -11,6 +21,7 @@ const I18N = {
     'hero.h1b': 'Record it, and let AI speak for it.',
     'hero.lead': 'A cat meow context classifier trained on the CatMeows research dataset. Feature extraction and inference run entirely on this page — your recordings never leave your device. It recognizes about <strong>60%</strong> of <em>strange cats</em>’ meows (better than humans — see the numbers below), but it can’t tell whether your cat loves you. Try the built-in samples first.',
     'state.ready': 'Ready',
+    'result.empty': 'No analysis yet — record, drop a file, or play a sample above.',
     // meter card
     'meter.h2': 'Live translation',
     'btn.record': 'Record',
@@ -32,6 +43,7 @@ const I18N = {
     'err.decode': 'Couldn’t parse this audio — try another file or record again',
     'err.mic': 'Microphone permission denied. You can re-allow it in browser settings.',
     'st.analyzing': 'Analyzing…',
+    'st.busy': 'Still working on the previous clip…',
     'st.no_sound': 'No usable sound detected',
     'st.done': 'Analysis complete',
     'st.low_conf': 'low confidence, for reference only',
@@ -99,7 +111,7 @@ const I18N = {
     't.c2.p': 'Random forest (150 trees, depth 7) — sturdier than deep nets at this scale (440 clips). Exported as pure JSON decision trees, ~50 KB gzipped, runs in your browser.',
     't.c3.h': 'Privacy',
     't.c3.p': 'Decoding, resampling, features and inference all happen on this page. No server, no cookies, no analytics.',
-    't.footnote': 'The pitch features aren’t arbitrary: Schötz et al. (2023) found rising-pitch meows occur in positive contexts and falling pitch in stress. Adding YIN stats lifted the by-cat accuracy from 59.4% to 60.9%.',
+    't.footnote': 'The pitch features aren’t arbitrary: Schötz et al. (2023) found rising-pitch meows occur in positive contexts and falling pitch in stress. Pitch features are one of the 95 dimensions; on held-out cats the model reaches 59.8% accuracy (majority-class baseline: 50.2%).',
     // science
     's.h2': 'What science says', 's.h2s': 'THE LITERATURE',
     's.intro': 'Meowing itself is more interesting than you’d think:',
@@ -151,6 +163,7 @@ const I18N = {
     'hero.h1b': '录音，让 AI 替它开口。',
     'hero.lead': '基于 CatMeows 学术数据集训练的猫叫情境分类器，特征提取与推理全部在浏览器本地完成——你的录音不会离开这台设备。它认得出<strong>陌生猫</strong>约六成的喵（比人类强，见下方数据），但听不出你的猫「爱不爱你」——先点下面的示例感受一下它听懂什么。',
     'state.ready': '就绪',
+    'result.empty': '还没有分析过——录音、拖个文件进来，或点上面的示例。',
     'meter.h2': '现场翻译',
     'btn.record': '录音', 'btn.recording': '录音中', 'btn.stop': '停止', 'btn.upload': '上传音频文件',
     'hint': '建议 1–5 秒、无背景音乐；浏览器录音需授权麦克风。支持 mp3 / wav / m4a / ogg 等常见格式。',
@@ -165,6 +178,7 @@ const I18N = {
     'err.decode': '无法解析这段音频，试试别的文件或重新录音',
     'err.mic': '麦克风授权被拒绝，可以在浏览器设置里重新允许',
     'st.analyzing': '正在分析…',
+    'st.busy': '上一段还在分析，稍等一下…',
     'st.no_sound': '没有检测到有效声音',
     'st.done': '分析完成',
     'st.low_conf': '置信度不足，仅供参考',
@@ -221,7 +235,7 @@ const I18N = {
     't.c2.p': '随机森林（150 棵、深度 7），在小样本（440 条）下比深度网络更稳。导出为纯 JSON 决策树在浏览器执行，gzip 后仅 ~50KB。',
     't.c3.h': '隐私',
     't.c3.p': '音频解码、重采样、特征、推理全部在本页面完成。没有服务器、没有 cookie、没有统计脚本。',
-    't.footnote': '音高特征不是随便加的：Schötz 等（2023）发现<strong>音高上升的喵多出现在积极情境，下降的多为应激</strong>，加上 YIN 中位数/起伏后，按猫划分成绩从 59.4% 提升到 60.9%。',
+    't.footnote': '音高特征不是随便加的：Schötz 等（2023）发现<strong>音高上升的喵多出现在积极情境，下降的多为应激</strong>，音高统计是 95 维特征里的一组；按猫划分的留一猫验证成绩为 59.8%（多数类基线 50.2%）。',
     's.h2': '科学背景', 's.h2s': 'WHAT SCIENCE SAYS',
     's.intro': '喵叫这件事本身，比想象中有趣得多：',
     's.c1.h': '喵是为人定制的',
@@ -296,6 +310,7 @@ function applyLang(){
   try{ window.__ms && window.__ms.pRender(); }catch(e){}
   try{ window.__ms && window.__ms.renderMetrics(); }catch(e){}
   try{ window.__ms && window.__ms.rerenderResult(); }catch(e){}
+  try{ window.__ms && window.__ms.renderHistory(); }catch(e){}
 }
 function setMeta(sel, val){
   const el=document.querySelector(sel);
