@@ -21,6 +21,7 @@ const I18N = {
     'hero.h1b': 'Record it, and let AI speak for it.',
     'hero.lead': 'A cat meow context classifier trained on the CatMeows research dataset. Feature extraction and inference run entirely on this page — your recordings never leave your device. It recognizes about <strong>60%</strong> of <em>strange cats</em>’ meows (better than humans — see the numbers below), but it can’t tell whether your cat loves you. Try the built-in samples first.',
     'state.ready': 'Ready',
+    'result.empty': 'No analysis yet — record, drop a file, or play a sample above.',
     // meter card
     'meter.h2': 'Live translation',
     'btn.record': 'Record',
@@ -42,6 +43,7 @@ const I18N = {
     'err.decode': 'Couldn’t parse this audio — try another file or record again',
     'err.mic': 'Microphone permission denied. You can re-allow it in browser settings.',
     'st.analyzing': 'Analyzing…',
+    'st.busy': 'Still working on the previous clip…',
     'st.no_sound': 'No usable sound detected',
     'st.done': 'Analysis complete',
     'st.low_conf': 'low confidence, for reference only',
@@ -161,6 +163,7 @@ const I18N = {
     'hero.h1b': '录音，让 AI 替它开口。',
     'hero.lead': '基于 CatMeows 学术数据集训练的猫叫情境分类器，特征提取与推理全部在浏览器本地完成——你的录音不会离开这台设备。它认得出<strong>陌生猫</strong>约六成的喵（比人类强，见下方数据），但听不出你的猫「爱不爱你」——先点下面的示例感受一下它听懂什么。',
     'state.ready': '就绪',
+    'result.empty': '还没有分析过——录音、拖个文件进来，或点上面的示例。',
     'meter.h2': '现场翻译',
     'btn.record': '录音', 'btn.recording': '录音中', 'btn.stop': '停止', 'btn.upload': '上传音频文件',
     'hint': '建议 1–5 秒、无背景音乐；浏览器录音需授权麦克风。支持 mp3 / wav / m4a / ogg 等常见格式。',
@@ -175,6 +178,7 @@ const I18N = {
     'err.decode': '无法解析这段音频，试试别的文件或重新录音',
     'err.mic': '麦克风授权被拒绝，可以在浏览器设置里重新允许',
     'st.analyzing': '正在分析…',
+    'st.busy': '上一段还在分析，稍等一下…',
     'st.no_sound': '没有检测到有效声音',
     'st.done': '分析完成',
     'st.low_conf': '置信度不足，仅供参考',
@@ -306,6 +310,7 @@ function applyLang(){
   try{ window.__ms && window.__ms.pRender(); }catch(e){}
   try{ window.__ms && window.__ms.renderMetrics(); }catch(e){}
   try{ window.__ms && window.__ms.rerenderResult(); }catch(e){}
+  try{ window.__ms && window.__ms.renderHistory(); }catch(e){}
 }
 function setMeta(sel, val){
   const el=document.querySelector(sel);

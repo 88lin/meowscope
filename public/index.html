@@ -131,7 +131,7 @@
   :root{
     --bg:#faf7f2; --ink:#2b2620; --muted:#6f675c; --line:#e6dfd3;
     --card:#ffffff; --accent:#d96a2b; --accent-text:#a8501a; --accent-strong:#b0521b; --accent-soft:#f7e3d3;
-    --ok:#3d7a4e; --ok-soft:#e2efe5; --warn:#b3541e;
+    --ok:#3d7a4e; --ok-soft:#e2efe5; --ok-line:#cfe0d4; --warn:#b3541e;
     --wave-bg:#f4efe6; --wave-idle:#c9c0b0; --track:#efe9dd;
     --shadow:0 1px 3px rgba(60,50,40,.05), 0 8px 28px rgba(60,50,40,.06);
     --bg-blur:rgba(250,247,242,.88);
@@ -142,7 +142,7 @@
   :root[data-theme="dark"]{
     --bg:#171613; --ink:#ece7de; --muted:#9a9184; --line:#3a362f;
     --card:#221f1b; --accent:#ec8a4e; --accent-text:#f0a06b; --accent-strong:#ec8a4e; --accent-soft:#3a2a1e;
-    --ok:#7cb58c; --ok-soft:#1e2c23; --warn:#e0905c;
+    --ok:#7cb58c; --ok-soft:#1e2c23; --ok-line:#2f4436; --warn:#e0905c;
     --wave-bg:#201d19; --wave-idle:#4a443a; --track:#332f28;
     --shadow:0 1px 3px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
     --bg-blur:rgba(23,22,19,.88);
@@ -152,7 +152,7 @@
     :root:not([data-theme="light"]){
       --bg:#171613; --ink:#ece7de; --muted:#9a9184; --line:#3a362f;
       --card:#221f1b; --accent:#ec8a4e; --accent-text:#f0a06b; --accent-strong:#ec8a4e; --accent-soft:#3a2a1e;
-      --ok:#7cb58c; --ok-soft:#1e2c23; --warn:#e0905c;
+      --ok:#7cb58c; --ok-soft:#1e2c23; --ok-line:#2f4436; --warn:#e0905c;
       --wave-bg:#201d19; --wave-idle:#4a443a; --track:#332f28;
       --shadow:0 1px 3px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
       --bg-blur:rgba(23,22,19,.88);
@@ -243,9 +243,13 @@
 
   /* ---------- results ---------- */
   #result{margin-top:22px;display:none}
+  .result-empty{
+    margin-top:16px;padding:12px 14px;border:1px dashed var(--line);border-radius:10px;
+    font-size:.82rem;color:var(--muted);text-align:center;
+  }
   .verdict{
     display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:10px;
-    background:var(--ok-soft);border:1px solid var(--ok);
+    background:var(--ok-soft);border:1px solid var(--ok-line);
   }
   .verdict.unsure{background:var(--accent-soft);border-color:var(--accent)}
   .verdict .emoji{font-size:2rem;line-height:1}
@@ -439,6 +443,7 @@
       <button class="demo-btn" data-i="2" data-i18n="demo.isolation"></button>
     </div>
 
+    <div id="result-empty" class="result-empty"><span data-i18n="result.empty"></span></div>
     <div id="result" role="region" aria-label="分析结果">
       <div class="verdict">
         <span class="ring-wrap" aria-hidden="true">
@@ -798,6 +803,8 @@ function predict(feat){
 
 function showResult(preds, durSec, rms){
   resultEl.style.display='block';
+  const emptyEl=document.getElementById('result-empty');
+  if(emptyEl) emptyEl.style.display='none';
   const top=preds[0];
   const verdict=document.querySelector('.verdict');
   const barsWrap=document.getElementById('bars');
@@ -869,7 +876,10 @@ function showResult(preds, durSec, rms){
   stateEl.textContent=`${t('st.done')} · ${durSec.toFixed(1)}s`;
 }
 
+let busy=false;   // 防止连点导致两次分析交叉写入结果
 async function analyze(blob, label){
+  if(busy){ toast(t('st.busy')); return; }
+  busy=true;
   try{
     stateEl.textContent=t('st.analyzing');
     resultEl.style.display='none';
@@ -881,14 +891,22 @@ async function analyze(blob, label){
     drawStatic(data, data.length/22050);
     if (rms < 0.003) {
       resultEl.style.display='block';
+      const emptyEl=document.getElementById('result-empty');
+      if(emptyEl) emptyEl.style.display='none';
       const verdict=document.querySelector('.verdict');
       verdict.className='verdict unsure';
       document.getElementById('v-emoji').textContent='🔇';
       document.getElementById('v-main').textContent=t('v.silence');
       document.getElementById('v-sub').textContent=t('v.silence.sub');
+      // 静音时要把上一次结果的痕迹全部清掉，否则环、元信息、按钮会残留
       document.getElementById('btn-speak').style.display='none';
+      document.getElementById('btn-compare').style.display='none';
       document.getElementById('btn-share').style.display='none';
       document.getElementById('btn-save').style.display='none';
+      document.getElementById('v-mode').style.display='none';
+      document.getElementById('v-pct').textContent='—';
+      document.getElementById('ring-fill').style.strokeDashoffset='207.3';
+      document.getElementById('v-meta').textContent='';
       barsEl.innerHTML='';
       lastWave=null; lastPreds=null; lastUnsure=false;
       stateEl.textContent=t('st.no_sound');
@@ -911,6 +929,8 @@ async function analyze(blob, label){
     console.error(e);
     stateEl.textContent=t('err.decode');
     drawIdle();
+  }finally{
+    busy=false;
   }
 }
 
@@ -968,15 +988,20 @@ async function playReference(clsKey){
   }catch(e){ toast(t('err.decode')); }
 }
 
-/* ---------- 拖拽 / 粘贴上传 ---------- */
+/* ---------- 拖拽 / 粘贴上传 ----------
+   dragenter/dragleave 会因为掠过子元素反复触发，用计数器避免高亮闪烁 */
 const meterCard=document.querySelector('.meter-card');
-['dragenter','dragover'].forEach(ev=>meterCard.addEventListener(ev, e=>{
-  e.preventDefault(); meterCard.classList.add('drag');
-}));
-['dragleave','dragend','drop'].forEach(ev=>meterCard.addEventListener(ev, e=>{
-  e.preventDefault(); meterCard.classList.remove('drag');
-}));
+let dragDepth=0;
+meterCard.addEventListener('dragenter', e=>{
+  e.preventDefault(); dragDepth++; meterCard.classList.add('drag');
+});
+meterCard.addEventListener('dragover', e=>{ e.preventDefault(); });
+meterCard.addEventListener('dragleave', e=>{
+  e.preventDefault(); dragDepth=Math.max(0, dragDepth-1);
+  if(dragDepth===0) meterCard.classList.remove('drag');
+});
 meterCard.addEventListener('drop', e=>{
+  e.preventDefault(); dragDepth=0; meterCard.classList.remove('drag');
   const f=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if(!f) return;
   if(!/^audio\//.test(f.type) && !/\.(wav|mp3|m4a|ogg|webm|flac|aac)$/i.test(f.name)){
@@ -1013,11 +1038,24 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=
 /* ---------- record ---------- */
 let mediaStream=null, mediaRec=null, chunks=[];
 const btnRec=document.getElementById('btn-record'), btnStop=document.getElementById('btn-stop');
+let recTimer=null, recT0=0, recStopTimer=null;
+const REC_MAX=15;   // 单次最多录 15 秒，避免录出几十 MB 的 blob
+function startRecTimer(){
+  recT0=performance.now();
+  const tick=()=>{
+    const s=(performance.now()-recT0)/1000;
+    stateEl.textContent=`${t('btn.recording')} ${s.toFixed(1)}s / ${REC_MAX}s`;
+  };
+  tick();
+  recTimer=setInterval(tick, 100);
+}
+function stopRecTimer(){ if(recTimer){ clearInterval(recTimer); recTimer=null; } }
+
 btnRec.onclick=async()=>{
   try{
     mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
   }catch(e){ stateEl.textContent=t('err.mic'); return; }
-  const acx=new AudioContext();
+  const acx=audioCtx();
   const src=acx.createMediaStreamSource(mediaStream);
   liveAnalyser=acx.createAnalyser(); liveAnalyser.fftSize=2048;
   src.connect(liveAnalyser);
@@ -1025,15 +1063,18 @@ btnRec.onclick=async()=>{
   mediaRec=new MediaRecorder(mediaStream); chunks=[];
   mediaRec.ondataavailable=e=>chunks.push(e.data);
   mediaRec.onstop=async()=>{
-    cancelAnimationFrame(rafId); drawIdle(); acx.close();
+    stopRecTimer();
+    if(recStopTimer){ clearTimeout(recStopTimer); recStopTimer=null; }
+    cancelAnimationFrame(rafId); drawIdle();
     mediaStream.getTracks().forEach(t=>t.stop());
     const blob=new Blob(chunks,{type:mediaRec.mimeType||'audio/webm'});
     analyze(blob,'recording');
   };
   mediaRec.start();
   btnRec.disabled=true; btnStop.disabled=false;
-  stateEl.textContent=t('st.analyzing')+' 🎙️';
+  startRecTimer();
   btnRec.innerHTML=`<span class="rec-dot"></span>${t('btn.recording')}`;
+  recStopTimer=setTimeout(()=>{ if(mediaRec&&mediaRec.state==='recording') mediaRec.stop(); }, REC_MAX*1000);
 };
 btnStop.onclick=()=>{ if(mediaRec&&mediaRec.state==='recording')mediaRec.stop(); btnRec.disabled=false; btnStop.disabled=true; btnRec.textContent=t('btn.record'); };
 
@@ -1390,13 +1431,16 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 // test hooks (used by automated e2e; harmless in production)
 window.__ms={decodeToBuffer, extractFeatures, extractF0Stats, predict, predictPersonal:()=>predictPersonal, trainPersonal, pSamples:()=>pSamples, lsSave, pRender, renderMetrics,
   rerenderResult:()=>{ if(lastPreds) showResult(lastPreds, lastDur, 0); },
+  renderHistory,
   buildShareCanvas,
   get usePersonal(){return usePersonal;}, set usePersonal(v){usePersonal=v;},
   get personalModel(){return personalModel;}, get preds(){return lastPreds;},
   get unsure(){return lastUnsure;}, set unsure(v){lastUnsure=v;},
   predictPersonalFeat:(ft)=>predictPersonal(ft)};
 pRender();
+renderHistory();
 applyTheme();
+stateEl.textContent=t('state.ready');
 </script>
 </body>
 </html>
