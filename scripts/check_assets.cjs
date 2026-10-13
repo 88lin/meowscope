@@ -21,6 +21,28 @@ try {
   for (const m of sw.matchAll(/'\.\/([^']+)'/g)) refs.add('./' + m[1]);
 } catch (e) {}
 
+
+// 中英文案的 key 集合必须完全一致：漏一个 key 在页面上就是一片空白
+const i18n = fs.readFileSync(path.join(root, 'i18n.js'), 'utf8');
+const iEn = i18n.indexOf('  en: {'), iZh = i18n.indexOf('  zh: {');
+const keysOf = (chunk) => new Set(
+  [...chunk.matchAll(/'([^']+)':/g)].map((m) => m[1]).filter((k) => /^[a-z0-9]+(?:\.[a-z0-9]+)+$/.test(k))
+);
+if (iEn < 0 || iZh < 0) {
+  console.error('FAIL 无法在 i18n.js 中定位 en / zh 区块');
+  process.exit(1);
+}
+const kEn = keysOf(i18n.slice(iEn, iZh)), kZh = keysOf(i18n.slice(iZh));
+const missZh = [...kEn].filter((k) => !kZh.has(k));
+const missEn = [...kZh].filter((k) => !kEn.has(k));
+if (missZh.length || missEn.length) {
+  console.error('FAIL 中英文案 key 不一致（缺 key 的位置在页面上会显示空白）');
+  if (missZh.length) console.error('  zh 缺:', missZh.join(', '));
+  if (missEn.length) console.error('  en 缺:', missEn.join(', '));
+  process.exit(1);
+}
+console.log(`PASS 中英文案 key 一致（各 ${kEn.size} 个）`);
+
 const missing = [...refs].filter(r => !fs.existsSync(path.join(root, r.replace(/^\.\//, ''))));
 const unused = fs.readdirSync(root)
   .filter((f) => !['index.html'].includes(f))
