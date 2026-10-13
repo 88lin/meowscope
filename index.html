@@ -130,9 +130,10 @@
 <style>
   :root{
     --bg:#faf7f2; --ink:#2b2620; --muted:#6f675c; --line:#e6dfd3;
-    --card:#ffffff; --accent:#d96a2b; --accent-text:#a8501a; --accent-strong:#b0521b; --accent-soft:#f7e3d3;
+    --card:#ffffff; --accent:#d96a2b; --accent-text:#9c4a17; --accent-strong:#b0521b; --accent-soft:#f7e3d3;
     --ok:#3d7a4e; --ok-soft:#e2efe5; --ok-line:#cfe0d4; --warn:#b3541e;
     --wave-bg:#f4efe6; --wave-idle:#c9c0b0; --track:#efe9dd;
+    --ink-hover:#443c32; --card-2:#fffdf9;
     --shadow:0 1px 3px rgba(60,50,40,.05), 0 8px 28px rgba(60,50,40,.06);
     --bg-blur:rgba(250,247,242,.88);
     color-scheme:light;
@@ -144,6 +145,7 @@
     --card:#221f1b; --accent:#ec8a4e; --accent-text:#f0a06b; --accent-strong:#ec8a4e; --accent-soft:#3a2a1e;
     --ok:#7cb58c; --ok-soft:#1e2c23; --ok-line:#2f4436; --warn:#e0905c;
     --wave-bg:#201d19; --wave-idle:#4a443a; --track:#332f28;
+    --ink-hover:#ffffff; --card-2:#262320;
     --shadow:0 1px 3px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
     --bg-blur:rgba(23,22,19,.88);
     color-scheme:dark;
@@ -154,6 +156,8 @@
       --card:#221f1b; --accent:#ec8a4e; --accent-text:#f0a06b; --accent-strong:#ec8a4e; --accent-soft:#3a2a1e;
       --ok:#7cb58c; --ok-soft:#1e2c23; --ok-line:#2f4436; --warn:#e0905c;
       --wave-bg:#201d19; --wave-idle:#4a443a; --track:#332f28;
+      --ink-hover:#ffffff; --card-2:#262320;
+    --ink-hover:#ffffff; --card-2:#262320;
       --shadow:0 1px 3px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
       --bg-blur:rgba(23,22,19,.88);
       color-scheme:dark;
@@ -163,8 +167,13 @@
   html{scroll-behavior:smooth}
   body{
     background:var(--bg); color:var(--ink);
-    font-family:"Source Han Serif SC","Noto Serif SC","Songti SC",Georgia,serif;
-    line-height:1.75;
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+                "Helvetica Neue", "PingFang SC", "Hiragino Sans GB",
+                "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC", Arial, sans-serif;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    letter-spacing:.01em;
   }
   ::selection{background:var(--accent-soft)}
   .wrap{max-width:880px;margin:0 auto;padding:0 24px}
@@ -184,10 +193,10 @@
 
   /* ---------- header ---------- */
   header{border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:50;backdrop-filter:blur(8px);background:var(--bg-blur)}
-  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0;gap:12px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0;gap:12px}
   .logo{display:flex;align-items:baseline;gap:10px}
-  .logo b{font-size:1.25rem;letter-spacing:.12em}
-  .logo span{font-size:.8rem;color:var(--muted);letter-spacing:.05em}
+  .logo b{font-size:1.2rem;font-weight:600;letter-spacing:.02em}
+  .logo span{font-size:.7rem;color:var(--muted);letter-spacing:.18em}
   .nav{display:flex;gap:18px;font-size:.85rem}
   .nav a{color:var(--muted)}
   .nav a:hover{color:var(--accent-text);text-decoration:none}
@@ -200,16 +209,16 @@
   .gh-link{font-size:.85rem;color:var(--muted)}
   .gh-link:hover{color:var(--accent-text);text-decoration:none}
 
-  .hero{padding:64px 0 48px}
-  .kicker{font-size:.78rem;letter-spacing:.35em;color:var(--accent-text);margin-bottom:14px}
-  h1{font-size:clamp(1.9rem,4.5vw,2.8rem);line-height:1.3;font-weight:700;letter-spacing:.02em}
+  .hero{padding:76px 0 52px}
+  .kicker{font-size:.72rem;font-weight:600;letter-spacing:.28em;color:var(--accent-text);margin-bottom:16px}
+  h1{font-size:clamp(2.1rem,5vw,3.15rem);line-height:1.22;font-weight:700;letter-spacing:-.015em}
   h1 em{font-style:normal;color:var(--accent-text)}
-  .hero p.lead{margin-top:18px;color:#5c554b;max-width:640px;font-size:1.02rem}
+  .hero p.lead{margin-top:18px;color:var(--ink);opacity:.78;max-width:640px;font-size:1.05rem}
 
   /* ---------- meter ---------- */
   .meter-card{
-    background:var(--card);border:1px solid var(--line);border-radius:14px;
-    padding:26px 28px;margin:34px 0 0;box-shadow:var(--shadow);
+    background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:28px 30px;margin:36px 0 0;box-shadow:var(--shadow);
     transition:border-color .15s ease, background .15s ease;
   }
   .meter-card.drag{border-color:var(--accent);background:var(--accent-soft)}
@@ -223,15 +232,15 @@
     background:var(--bg-blur);
   }
   .meter-card.drag .wave-wrap .drop-hint{display:flex}
-  canvas#wave{width:100%;height:84px;display:block;border-radius:8px;background:var(--wave-bg)}
+  canvas#wave{width:100%;height:92px;display:block;border-radius:12px;background:var(--wave-bg)}
   .controls{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;align-items:center}
   button{
-    font-family:inherit;font-size:.92rem;padding:10px 24px;border-radius:999px;
+    font-family:inherit;font-size:.9rem;font-weight:500;padding:11px 26px;border-radius:999px;
     border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer;
-    letter-spacing:.08em;transition:transform .08s ease, opacity .15s, background .15s, border-color .15s;
+    letter-spacing:.04em;transition:transform .08s ease, opacity .15s, background .15s, border-color .15s;
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;min-height:44px;
   }
-  button:hover:not(:disabled){background:#443c32;border-color:#443c32}
+  button:hover:not(:disabled){background:var(--ink-hover);border-color:var(--ink-hover)}
   button:active{transform:translateY(1px)}
   button.ghost{background:transparent;color:var(--ink)}
   button.ghost:hover:not(:disabled){background:transparent;border-color:var(--accent);color:var(--accent-text)}
@@ -299,16 +308,16 @@
   .demos{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
   .demos .lbl{font-size:.78rem;color:var(--muted);letter-spacing:.05em}
   .demo-btn{
-    font-family:inherit;font-size:.82rem;padding:10px 16px;border-radius:999px;
-    border:1px dashed var(--line);background:transparent;color:var(--ink);opacity:.8;cursor:pointer;
-    letter-spacing:.05em;min-height:44px;
+    font-family:inherit;font-size:.82rem;font-weight:500;padding:9px 16px;border-radius:999px;
+    border:1px dashed var(--line);background:transparent;color:var(--ink);opacity:.85;cursor:pointer;
+    letter-spacing:.02em;min-height:44px;
   }
-  .demo-btn:hover{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
-  .demo-btn.playing{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}
+  button.demo-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+  button.demo-btn.playing{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}
   /* personalization */
-  .personal-box{border:1px solid var(--line);border-radius:12px;padding:20px 22px;background:var(--card)}
+  .personal-box{border:1px solid var(--line);border-radius:14px;padding:20px 22px;background:var(--card-2)}
   .p-mode{display:flex;gap:10px;margin-bottom:14px}
-  .mode-btn{border:1px solid var(--line);background:transparent;border-radius:999px;padding:8px 18px;font:inherit;font-size:.9rem;cursor:pointer}
+  .mode-btn{border:1px solid var(--line);background:transparent;border-radius:999px;padding:8px 18px;font:inherit;font-size:.9rem;color:var(--ink);cursor:pointer}
   .mode-btn.active{background:var(--accent-strong);border-color:var(--accent-strong);color:var(--bg)}
   .mode-btn:disabled{opacity:.45;cursor:not-allowed}
   .p-steps{display:flex;gap:8px;margin:6px 0 12px;flex-wrap:wrap}
@@ -333,26 +342,39 @@
   }
 
   /* ---------- sections ---------- */
-  section{padding:56px 0;border-bottom:1px solid var(--line)}
-  section h2{font-size:1.3rem;margin-bottom:20px;letter-spacing:.04em}
-  section h2 small{font-size:.8rem;color:var(--muted);letter-spacing:.2em;margin-left:10px}
+  section{padding:64px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:1.4rem;font-weight:600;margin-bottom:20px;letter-spacing:-.01em}
+  section h2 small{font-size:.68rem;color:var(--muted);letter-spacing:.22em;margin-left:10px;font-weight:500}
   p.body{color:var(--ink);opacity:.82;max-width:700px}
 
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:24px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
-  .card h3{font-size:.95rem;margin-bottom:8px}
-  .card h3 .tag{font-size:.7rem;color:var(--muted);letter-spacing:.15em;margin-right:6px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;transition:border-color .15s ease}
+  .card h3{font-size:1rem;font-weight:600;margin-bottom:8px}
+  .card h3 .tag{font-size:.68rem;color:var(--muted);letter-spacing:.16em;margin-right:6px;font-weight:500}
   .card p{font-size:.86rem;color:var(--ink);opacity:.72}
   .card .prob{font-size:.78rem;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
 
   table.metrics{width:100%;border-collapse:collapse;margin-top:20px;font-size:.88rem}
   table.metrics th,table.metrics td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}
-  table.metrics th{color:var(--muted);font-weight:500;font-size:.8rem;letter-spacing:.06em}
+  table.metrics th{color:var(--muted);font-weight:600;font-size:.78rem;letter-spacing:.08em}
   table.metrics td.num{font-variant-numeric:tabular-nums}
   .note{font-size:.82rem;color:var(--muted);margin-top:12px}
 
+  /* ---------- 作者的其他站点 ---------- */
+  .sites{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:22px}
+  .site{
+    display:flex;flex-direction:column;gap:4px;padding:16px 18px;border:1px solid var(--line);
+    border-radius:14px;background:var(--card);text-decoration:none;color:var(--ink);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .site:hover{border-color:var(--accent);background:var(--accent-soft);text-decoration:none}
+  .site b{font-size:.95rem;font-weight:600;display:flex;align-items:center;gap:6px}
+  .site b .arrow{color:var(--accent-text);font-size:.8rem}
+  .site span{font-size:.8rem;color:var(--muted);line-height:1.55}
+  .site .host{font-size:.72rem;color:var(--muted);opacity:.8;margin-top:2px;font-variant-numeric:tabular-nums}
+
   /* ---------- footer ---------- */
-  footer{padding:36px 0 48px;font-size:.82rem;color:var(--muted)}
+  footer{padding:44px 0 60px;font-size:.82rem;color:var(--muted)}
   footer .row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 
   @media (max-width:720px){
@@ -570,6 +592,42 @@
       <div class="card"><h3><span class="tag">STEP</span><span data-i18n="o.c1.h"></span></h3><p data-i18n="o.c1.p"></p></div>
       <div class="card"><h3><span class="tag">STEP</span><span data-i18n="o.c2.h"></span></h3><p><code style="font-size:.8rem">pip install librosa scikit-learn && python scripts/train.py</code> 输出模型与交叉验证指标。</p></div>
       <div class="card"><h3><span class="tag">STEP</span><span data-i18n="o.c3.h"></span></h3><p><code style="font-size:.8rem">python scripts/export_js.py</code> 把森林转成 JSON，<code style="font-size:.8rem">node scripts/test_parity.cjs</code> 验证 JS 特征与 Python 一致。</p></div>
+    </div>
+  </section>
+  <section id="more">
+    <h2><span data-i18n="more.h2"></span> <small data-i18n="more.h2s"></small></h2>
+    <p class="body" data-i18n="more.intro"></p>
+    <div class="sites">
+      <a class="site" href="https://88lin.eu.org/" target="_blank" rel="noopener">
+        <b>88lin 个人主页 <span class="arrow">↗</span></b>
+        <span data-i18n="more.s1"></span>
+        <span class="host">88lin.eu.org</span>
+      </a>
+      <a class="site" href="https://blog.88lin.eu.org" target="_blank" rel="noopener">
+        <b>个人博客 <span class="arrow">↗</span></b>
+        <span data-i18n="more.s2"></span>
+        <span class="host">blog.88lin.eu.org</span>
+      </a>
+      <a class="site" href="https://dev.88lin.eu.org/" target="_blank" rel="noopener">
+        <b>作品集与开发服务 <span class="arrow">↗</span></b>
+        <span data-i18n="more.s3"></span>
+        <span class="host">dev.88lin.eu.org</span>
+      </a>
+      <a class="site" href="https://go.88lin.eu.org/" target="_blank" rel="noopener">
+        <b>免费在线工具导航 <span class="arrow">↗</span></b>
+        <span data-i18n="more.s4"></span>
+        <span class="host">go.88lin.eu.org</span>
+      </a>
+      <a class="site" href="https://github.com/88lin" target="_blank" rel="noopener">
+        <b>GitHub @88lin <span class="arrow">↗</span></b>
+        <span data-i18n="more.s5"></span>
+        <span class="host">github.com/88lin</span>
+      </a>
+      <a class="site" href="https://test.88lin.eu.org/" target="_blank" rel="noopener">
+        <b>心理与性格测试 <span class="arrow">↗</span></b>
+        <span data-i18n="more.s6"></span>
+        <span class="host">test.88lin.eu.org</span>
+      </a>
     </div>
   </section>
 
@@ -1239,7 +1297,7 @@ document.getElementById('mode-personal').onclick=()=>{
 };
 /* ---------- 分享卡片：把结果画成 1200×630 高清图（2x 超采样） ---------- */
 const CARD_W = 1200, CARD_H = 630, CARD_S = 2;
-const SERIF = '"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif';
+const SANS = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", Arial, sans-serif';
 const EMOJI_F = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';
 const C = { bg:'#faf7f2', ink:'#2b2620', muted:'#8a8175', line:'#e6dfd3',
             card:'#ffffff', accent:'#d96a2b', accentSoft:'#f7e3d3', ok:'#3d7a4e' };
@@ -1314,9 +1372,9 @@ function buildShareCanvas(line){
   // 页眉：品牌 + 日期
   x.font=`46px ${EMOJI_F}`; x.fillStyle=C.ink;
   x.fillText('🐱', 64, 96);
-  x.font=`700 30px ${SERIF}`; x.fillStyle=C.ink;
+  x.font=`700 30px ${SANS}`; x.fillStyle=C.ink;
   x.fillText(t('share.brand'), 124, 92);
-  x.font=`400 18px ${SERIF}`; x.fillStyle=C.muted;
+  x.font=`400 18px ${SANS}`; x.fillStyle=C.muted;
   const d=new Date();
   const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   x.textAlign='right'; x.fillText(dateStr, CARD_W-64, 92); x.textAlign='left';
@@ -1329,21 +1387,21 @@ function buildShareCanvas(line){
   x.font=`112px ${EMOJI_F}`; x.fillStyle=C.ink;
   x.fillText(emoji, 64, 268);
 
-  x.font=`400 22px ${SERIF}`; x.fillStyle=C.muted;
+  x.font=`400 22px ${SANS}`; x.fillStyle=C.muted;
   x.fillText(t('share.verdict'), 200, 196);
 
   const head = unsure ? t('share.unsure') : LName(top.c);
   const pct  = top ? Math.round(top.p*100) : 0;
-  x.font=`700 62px ${SERIF}`; x.fillStyle=C.ink;
+  x.font=`700 62px ${SANS}`; x.fillStyle=C.ink;
   x.fillText(head, 200, 258);
   const hw=x.measureText(head).width;
-  x.font=`800 44px ${SERIF}`; x.fillStyle=C.accent;
+  x.font=`800 44px ${SANS}`; x.fillStyle=C.accent;
   x.fillText(`${pct}%`, 200+hw+16, 258);
 
   // 专属模型徽章
   if(usePersonal && personalModel){
     const tag=t('share.personal');
-    x.font=`600 18px ${SERIF}`;
+    x.font=`600 18px ${SANS}`;
     const tw=x.measureText(tag).width+28;
     x.fillStyle='#e2efe5';
     roundRect(x, 200, 274, tw, 32, 16); x.fill();
@@ -1351,7 +1409,7 @@ function buildShareCanvas(line){
   }
 
   // 一句“猫话”
-  x.font=`400 24px ${SERIF}`; x.fillStyle='#5c554b';
+  x.font=`400 24px ${SANS}`; x.fillStyle='#5c554b';
   const sub=wrapText(x, line||'', CARD_W-128);
   sub.slice(0,2).forEach((l,i)=>x.fillText(l, 64, 348+i*34));
 
@@ -1359,14 +1417,14 @@ function buildShareCanvas(line){
   const barTop=400;
   (preds.length?preds:[]).forEach((p,i)=>{
     const y=barTop+i*38;
-    x.font=`400 20px ${SERIF}`; x.fillStyle='#5c554b';
+    x.font=`400 20px ${SANS}`; x.fillStyle='#5c554b';
     x.fillText(`${LABELS[p.c]?LABELS[p.c].emoji:''} ${LName(p.c)}`, 64, y+18);
     x.fillStyle='#efe9dd';
     roundRect(x, 260, y+6, CARD_W-260-64-70, 12, 6); x.fill();
     x.fillStyle = i===0 ? C.accent : C.muted;
     const w=Math.max(4,(CARD_W-260-64-70)*p.p);
     roundRect(x, 260, y+6, w, 12, 6); x.fill();
-    x.font=`400 20px ${SERIF}`; x.fillStyle=C.muted;
+    x.font=`400 20px ${SANS}`; x.fillStyle=C.muted;
     x.textAlign='right'; x.fillText(`${Math.round(p.p*100)}%`, CARD_W-64, y+18); x.textAlign='left';
   });
 
@@ -1374,7 +1432,7 @@ function buildShareCanvas(line){
   drawWaveform(x, lastWave, 64, 512, CARD_W-128, 52);
 
   // 页脚
-  x.font=`400 18px ${SERIF}`; x.fillStyle=C.muted;
+  x.font=`400 18px ${SANS}`; x.fillStyle=C.muted;
   x.fillText(t('share.privacy'), 64, 594);
   x.textAlign='right'; x.fillStyle=C.accent;
   x.fillText('88lin.github.io/meowscope', CARD_W-64, 594); x.textAlign='left';
