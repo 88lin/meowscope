@@ -6,6 +6,8 @@
 
 在线体验：https://88lin.github.io/meowscope/ （或直接打开 `public/index.html` 本地跑）
 
+![产品演示：录音 → 分析 → 频谱图 → 判定](docs/demo.gif)
+
 > 分享到微信 / X / Telegram 时的链接预览图：
 > ![MeowScope 分享预览图](public/og-image.png)
 
@@ -173,6 +175,7 @@ scripts/
   test_parity.cjs    # Node 对拍测试
   make_og_image.py   # 生成 OG 分享图
 docs/
+  demo.gif                # 产品演示（README 顶部内嵌播放）
   share-card-example.png  # 分享卡片示例
 ```
 根目录另有 [CONTRIBUTING.md](CONTRIBUTING.md)（参与指南）与 `.github/ISSUE_TEMPLATE/data_contribution.yml`（数据贡献表单）。
