@@ -1756,6 +1756,16 @@ function downloadBlob(blob, name){
 const C_LABEL_KEYS=['brushing','waiting_for_food','isolation','other'];
 let cSamples=[];        // {blob, label, dur, mime, ext}
 let cStream=null, cRec=null, cChunks=[];
+let cPlaying=null;      // 正在试听的按钮（全局最多一个，避免叠加播放与对象 URL 泄漏）
+function cStopPlay(){
+  if(cPlaying && cPlaying._audio){
+    cPlaying._audio.pause();
+    URL.revokeObjectURL(cPlaying._audio.src);
+    cPlaying._audio=null;
+    cPlaying.textContent='▶';
+  }
+  cPlaying=null;
+}
 function cExt(mime){
   if(!mime) return 'webm';
   if(mime.includes('ogg')) return 'ogg';
@@ -1787,14 +1797,16 @@ function cRender(){
     const play=document.createElement('button'); play.className='ghost'; play.textContent='▶';
     play.title=t('c.btn.play');
     play.onclick=()=>{
-      if(play._audio){ play._audio.pause(); play._audio=null; play.textContent='▶'; return; }
+      if(cPlaying===play){ cStopPlay(); return; }
+      cStopPlay();                       // 停掉上一段，避免两段同时响
       const a=new Audio(URL.createObjectURL(s.blob));
-      a.onended=()=>{ play.textContent='▶'; play._audio=null; URL.revokeObjectURL(a.src); };
-      a.play().catch(()=>{}); play._audio=a; play.textContent='⏸';
+      a.onended=()=>{ if(cPlaying===play) cStopPlay(); };
+      a.play().catch(()=>{ if(cPlaying===play) cStopPlay(); });
+      play._audio=a; cPlaying=play; play.textContent='⏸';
     };
     const del=document.createElement('button'); del.className='ghost'; del.textContent='✕';
     del.title=t('c.btn.del');
-    del.onclick=()=>{ cSamples.splice(i,1); cRender(); };
+    del.onclick=()=>{ if(cPlaying===play) cStopPlay(); cSamples.splice(i,1); cRender(); };
     acts.append(play,del);
     li.append(tag,dur,acts);
     list.appendChild(li);
@@ -1813,6 +1825,7 @@ document.getElementById('c-record').onclick=async()=>{
     cStream.getTracks().forEach(tr=>tr.stop());
     const dur=(performance.now()-t0)/1000;
     const mime=cRec.mimeType||'audio/webm';
+    cStopPlay();                         // 新样本入列前停掉试听，避免列表重建后失控
     cSamples.push({blob:new Blob(cChunks,{type:mime}),
       label:document.getElementById('c-label').value, dur, mime, ext:cExt(mime)});
     btn.textContent=t('c.btn.record');
@@ -1822,7 +1835,7 @@ document.getElementById('c-record').onclick=async()=>{
   btn.textContent=t('c.btn.recording');
   setTimeout(()=>{ if(cRec && cRec.state==='recording') cRec.stop(); }, 5000);
 };
-document.getElementById('c-clear').onclick=()=>{ cSamples=[]; cRender(); };
+document.getElementById('c-clear').onclick=()=>{ cStopPlay(); cSamples=[]; cRender(); };
 document.getElementById('c-export').onclick=async()=>{
   if(!cSamples.length) return;
   const statusEl=document.getElementById('c-status');
@@ -1899,7 +1912,7 @@ document.getElementById('lang-btn').onclick=()=>{
 
 /* ---------- PWA: register service worker for offline install ---------- */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('./sw.js?v=10').catch(()=>{});
+  navigator.serviceWorker.register('./sw.js?v=11').catch(()=>{});
 }
 
 // test hooks (used by automated e2e; harmless in production)
@@ -1914,6 +1927,7 @@ window.__ms={decodeToBuffer, extractAll, predict, predictPersonal:()=>predictPer
   get melData(){return lastMelData;}, set melData(v){lastMelData=v;},
   get f0(){return lastF0;},
   cRender, cSamples:()=>cSamples, zipStore,
+  get cPlaying(){return !!cPlaying;},
   predictPersonalFeat:(ft)=>predictPersonal(ft)};
 pRender();
 cRender();

@@ -102,12 +102,20 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); };
     `localStorage 出现疑似音频样本键：${lsKeys.join(',')}`);
   console.log(`localStorage 键：${lsKeys.join(', ') || '（空）'}`);
 
-  // 删除 / 清空
-  await page.click('#c-list li:first-child .c-acts button:last-child');
+  // 删除 / 清空（含试听中的样本：必须停掉并释放对象 URL）
+  await page.click('#c-list li:first-child .c-acts button:first-child');   // 试听第一段
+  await page.waitForTimeout(400);
+  await page.click('#c-list li:first-child .c-acts button:last-child');    // 删掉正在试听的它
   await page.waitForTimeout(200);
+  const playingAfterDel = await page.evaluate(() => window.__ms.cPlaying);
+  ok(playingAfterDel === false, `删除正在试听的样本后应停止播放，实际 cPlaying=${playingAfterDel}`);
   let afterDel = await page.evaluate(() => window.__ms.cSamples().length);
-  await page.click('#c-clear');
+  await page.click('#c-list li:first-child .c-acts button:first-child');   // 试听剩下的
+  await page.waitForTimeout(400);
+  await page.click('#c-clear');                                            // 试听中清空
   await page.waitForTimeout(200);
+  const playingAfterClear = await page.evaluate(() => window.__ms.cPlaying);
+  ok(playingAfterClear === false, `清空时应停止试听，实际 cPlaying=${playingAfterClear}`);
   let afterClear = await page.evaluate(() => window.__ms.cSamples().length);
   ok(afterDel === 1 && afterClear === 0, `删除/清空异常：del=${afterDel} clear=${afterClear}`);
 
