@@ -286,8 +286,16 @@
   .bar-row{display:grid;grid-template-columns:110px 1fr 48px;align-items:center;gap:12px;font-size:.85rem}
   .bar-row .name{color:var(--ink);opacity:.8}
   .bar-row .pct{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
-  .bar-track{height:8px;background:var(--track);border-radius:99px;overflow:hidden}
-  .bar-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  /* 注意：.bar-fill 是 <span>，行内元素会忽略 width/height，
+     必须显式 display:block，否则进度条永远画不出来（之前就是 0x0） */
+  .bar-track{display:block;height:10px;background:var(--track);border-radius:var(--pill);overflow:hidden}
+  .bar-fill{
+    display:block;height:100%;width:0;border-radius:var(--pill);
+    background:var(--muted);
+    transition:width .7s cubic-bezier(.2,.8,.2,1);
+  }
+  .bar-row:first-child .bar-fill{background:var(--accent)}
+
   /* 最近几次结果 */
   .history{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
   .history .h-title{font-size:.75rem;color:var(--muted);letter-spacing:.08em;margin-bottom:8px}
