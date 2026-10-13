@@ -206,15 +206,22 @@ function meanStd(arr) {
   return [m, Math.sqrt(s / arr.length)];
 }
 
-export function extractFeatures(y) {
+/* 一次算出页面要用的全部东西：95 维特征、YIN 音高统计、梅尔频谱图。
+   频谱图给结果区可视化用（让用户直接看见「模型看到的输入」）；
+   STFT 只算一次，mel 投影与 MFCC 共用同一份功率谱。
+   注意：pad 只作用于特征侧（与 train.py 一致），音高统计仍用原始信号，
+   与旧版「extractFeatures(data) + extractF0Stats(data)」的行为完全一致。 */
+export function extractAll(yIn) {
+  const y = Float64Array.from(yIn);
+  let yp = y;
   // pad to at least 0.25s like train.py
-  if (y.length < SR / 4) {
-    const p = new Float64Array(Math.ceil(SR / 4)); p.set(y); y = p;
+  if (yp.length < SR / 4) {
+    const p = new Float64Array(Math.ceil(SR / 4)); p.set(yp); yp = p;
   }
-  // STFT 只算一次：mel  Spectrogram 和谱统计共用同一份功率谱
-  const stft = stftPower(y);
+  // STFT 只算一次：mel Spectrogram 和谱统计共用同一份功率谱
+  const stft = stftPower(yp);
   const { S, nFrames, half } = stft;
-  const { mel } = melSpectrogram(y, stft);
+  const { mel } = melSpectrogram(yp, stft);
   const mfcc = dct2(mel, N_MFCC, nFrames); // r*cols+c, mel is m*cols+c
   // delta1: librosa.feature.delta, mode='interp', width=9
   const d1 = new Float64Array(N_MFCC * nFrames);
@@ -245,12 +252,18 @@ export function extractFeatures(y) {
   for (let r = 0; r < N_MFCC; r++) feat.push(meanStd(col(mfcc, r, nFrames))[1]);
   for (let r = 0; r < N_MFCC; r++) feat.push(meanStd(col(d1, r, nFrames))[0]);
   for (let r = 0; r < N_MFCC; r++) feat.push(meanStd(col(d1, r, nFrames))[1]);
-  const { cent, rolloff, zcr, rms } = centroidRolloffZcrRms(y, nFrames, half, S);
+  const { cent, rolloff, zcr, rms } = centroidRolloffZcrRms(yp, nFrames, half, S);
   feat.push(meanStd(cent)[0], meanStd(cent)[1], meanStd(rolloff)[0],
             meanStd(zcr)[0], meanStd(zcr)[1], meanStd(rms)[0], meanStd(rms)[1],
             Math.max(...rms));
-  feat.push(y.length / SR);   // 时长（秒）：不同情境的喵长短不同
-  return feat;
+  feat.push(yp.length / SR);   // 时长（秒）：不同情境的喵长短不同
+  const f0 = extractF0Stats(y);
+  return { feat, f0, mel, nFrames, nMels: N_MELS };
+}
+
+// 兼容旧调用（scripts/test_parity.cjs、pyfeat 对拍都走这个入口）
+export function extractFeatures(y) {
+  return extractAll(y).feat;
 }
 
 function col(mat, r, nFrames) {

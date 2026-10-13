@@ -65,6 +65,40 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); };
     ok(ring.w > 10 && ring.h > 10, `置信度环渲染异常：${ring.w}x${ring.h}`);
     ok(ring.offset < 207.3, `置信度环没有随概率变化（offset=${ring.offset}）`);
     console.log(`置信度环：${ring.w}x${ring.h}，offset=${ring.offset.toFixed(1)}`);
+
+    // 梅尔频谱图：必须真的画出内容（空画布 = 又一个"摆设"）
+    const mel = await page.evaluate(() => {
+      const cv = document.getElementById('mel');
+      if (!cv) return null;
+      const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+      let painted = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) painted++;
+      return { w: cv.width, h: cv.height, painted, total: d.length / 4 };
+    });
+    ok(mel && mel.w >= 400, `梅尔频谱图画布异常：${mel && mel.w}x${mel && mel.h}`);
+    ok(mel && mel.painted > mel.total * 0.2,
+      `梅尔频谱图没有绘制内容（${mel && mel.painted}/${mel && mel.total} 像素）`);
+    console.log(`梅尔频谱图：${mel.w}x${mel.h}，已绘制 ${(mel.painted / mel.total * 100).toFixed(0)}%`);
+
+    // 声学特征行：三个值都应是具体数字，不能停留在占位符 —
+    const feats = await page.evaluate(() => ({
+      f0: document.getElementById('feat-f0').textContent.trim(),
+      jit: document.getElementById('feat-jit').textContent.trim(),
+      dur: document.getElementById('feat-dur').textContent.trim(),
+    }));
+    ok(/\d+\s*Hz/.test(feats.f0), `音高特征没有填充：${feats.f0}`);
+    ok(/\d+\s*Hz/.test(feats.jit), `抖动特征没有填充：${feats.jit}`);
+    ok(/\d+(\.\d+)?\s*s/.test(feats.dur), `时长特征没有填充：${feats.dur}`);
+    console.log(`声学特征：音高 ${feats.f0} · 抖动 ${feats.jit} · 时长 ${feats.dur}`);
+
+    // 语言切换：aria-label 之类的属性也要跟随（data-i18n-aria）
+    const ariaBefore = await page.evaluate(() => document.getElementById('result').getAttribute('aria-label'));
+    await page.click('#lang-btn');
+    await page.waitForTimeout(400);
+    const ariaAfter = await page.evaluate(() => document.getElementById('result').getAttribute('aria-label'));
+    ok(!!ariaBefore && ariaBefore !== ariaAfter,
+      `aria-label 未随语言更新（${ariaBefore} → ${ariaAfter}）`);
+    console.log(`aria-label 语言切换：${ariaBefore} → ${ariaAfter}`);
     await page.close();
   }
 
