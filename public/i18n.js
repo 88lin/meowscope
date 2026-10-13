@@ -2,6 +2,16 @@
 const I18N = {
   en: {
     // meta
+    'a11y.skip': '跳到主要内容',
+    'nav.how': '听得懂什么',
+    'nav.numbers': '诚实的数据',
+    'nav.personal': '教它认识你家猫',
+    'theme.toDark': 'Switch to dark mode',
+    'theme.toLight': 'Switch to light mode',
+    'drop.hint': '松手即可分析这段音频',
+    'hint.key': '按空格键可开始/停止录音。',
+    'btn.compare': '🔊 听听这类示例',
+    'history.title': '最近几次（点击可回看）',
     'doc.title': 'MeowScope — Understand what your cat is saying, right in your browser',
     'meta.desc': 'A cat meow context classifier that runs entirely in your browser: record or upload, on-device AI inference, zero uploads.',
     'lang.btn': '中文',
@@ -99,7 +109,7 @@ const I18N = {
     't.c2.p': 'Random forest (150 trees, depth 7) — sturdier than deep nets at this scale (440 clips). Exported as pure JSON decision trees, ~50 KB gzipped, runs in your browser.',
     't.c3.h': 'Privacy',
     't.c3.p': 'Decoding, resampling, features and inference all happen on this page. No server, no cookies, no analytics.',
-    't.footnote': 'The pitch features aren’t arbitrary: Schötz et al. (2023) found rising-pitch meows occur in positive contexts and falling pitch in stress. Adding YIN stats lifted the by-cat accuracy from 59.4% to 60.9%.',
+    't.footnote': 'The pitch features aren’t arbitrary: Schötz et al. (2023) found rising-pitch meows occur in positive contexts and falling pitch in stress. Pitch features are one of the 95 dimensions; on held-out cats the model reaches 59.8% accuracy (majority-class baseline: 50.2%).',
     // science
     's.h2': 'What science says', 's.h2s': 'THE LITERATURE',
     's.intro': 'Meowing itself is more interesting than you’d think:',
@@ -221,7 +231,7 @@ const I18N = {
     't.c2.p': '随机森林（150 棵、深度 7），在小样本（440 条）下比深度网络更稳。导出为纯 JSON 决策树在浏览器执行，gzip 后仅 ~50KB。',
     't.c3.h': '隐私',
     't.c3.p': '音频解码、重采样、特征、推理全部在本页面完成。没有服务器、没有 cookie、没有统计脚本。',
-    't.footnote': '音高特征不是随便加的：Schötz 等（2023）发现<strong>音高上升的喵多出现在积极情境，下降的多为应激</strong>，加上 YIN 中位数/起伏后，按猫划分成绩从 59.4% 提升到 60.9%。',
+    't.footnote': '音高特征不是随便加的：Schötz 等（2023）发现<strong>音高上升的喵多出现在积极情境，下降的多为应激</strong>，音高统计是 95 维特征里的一组；按猫划分的留一猫验证成绩为 59.8%（多数类基线 50.2%）。',
     's.h2': '科学背景', 's.h2s': 'WHAT SCIENCE SAYS',
     's.intro': '喵叫这件事本身，比想象中有趣得多：',
     's.c1.h': '喵是为人定制的',
