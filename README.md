@@ -124,6 +124,30 @@ python3 scripts/parity_check.py  # JS↔Python 逐位对拍，不需要下载数
   ```
 - 结果卡片在浏览器里用 Canvas 现画，中英文随页面语言；优先调用系统分享，桌面端退化为复制到剪贴板（可直接粘进微信），再退化为下载 PNG。文件名形如 `meowscope-waiting_for_food-67-20261011.png`。
 
+## 校验（CI 每次提交都跑）
+
+| 闸门 | 命令 | 查什么 |
+|---|---|---|
+| 特征对拍 | `python3 scripts/parity_check.py` | JS 特征提取 ↔ Python librosa 是否一致（不需要数据集） |
+| 资源自洽 | `node scripts/check_assets.cjs` | index.html 引用的资源是否都存在、中英文案 key 是否一致 |
+| UI 渲染 | `node scripts/ui_check.cjs` | 真实浏览器里量：进度条有没有画出来、置信度环、移动端是否溢出、明暗对比度 |
+
+UI 闸门存在的理由：只查「文字对比度」「几何溢出」抓不到**元素压根没画出来**的问题。
+进度条填充是个 `<span>`，行内元素会忽略 `width/height`，实际渲染是 0×0——
+页面上什么都不显示，控制台也没有任何报错。现在由 `scripts/ui_check.cjs`
+在真实浏览器里量填充宽度与标注百分比是否吻合。
+
+本地跑：
+
+```bash
+npm install && npx playwright install chromium
+(cd public && python3 -m http.server 8931 &) ; sleep 2
+npm run check
+```
+
+（站点本体仍然零依赖零构建——`package.json` 里的东西只在开发期校验时用，
+不会进 `public/`，也不影响页面加载。）
+
 ## 目录
 
 ```

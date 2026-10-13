@@ -34,9 +34,24 @@ jobs:
       - name: 检查 index.html 引用的资源都存在
         run: node scripts/check_assets.cjs
 
-  # 闸门 3：main 分支上自动发布到 gh-pages
+  # 闸门 3：真实浏览器里量渲染结果（进度条画没画出来、环、移动端溢出、明暗对比度）
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - name: 起本地静态服务
+        run: (cd public && nohup python3 -m http.server 8931 &) ; sleep 2
+      - name: UI 校验
+        run: node scripts/ui_check.cjs
+
+  # 闸门 4：main 分支上自动发布到 gh-pages
   deploy:
-    needs: [parity, assets]
+    needs: [parity, assets, ui]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

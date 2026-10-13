@@ -1,0 +1,15 @@
+{
+  "name": "meowscope",
+  "version": "1.0.0",
+  "private": true,
+  "description": "喵语通 MeowScope —— 浏览器端猫叫情境分类器。站点本体零依赖零构建，这里的依赖只用于开发期校验。",
+  "scripts": {
+    "check:parity": "python3 scripts/parity_check.py",
+    "check:assets": "node scripts/check_assets.cjs",
+    "check:ui": "node scripts/ui_check.cjs",
+    "check": "npm run check:assets && npm run check:ui"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

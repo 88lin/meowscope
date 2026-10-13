@@ -16,3 +16,4 @@ venv/
 /tmp/
 .DS_Store
 build/
+node_modules/
