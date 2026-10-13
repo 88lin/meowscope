@@ -1,0 +1,62 @@
+{
+  "MFCC+RF（线上基线）": {
+    "loso_acc": 0.5977,
+    "loso_macro_f1": 0.526
+  },
+  "AST-CLS+LR": {
+    "loso_acc": 0.5909,
+    "loso_macro_f1": 0.543
+  },
+  "AST-CLS+RF": {
+    "loso_acc": 0.6023,
+    "loso_macro_f1": 0.4986
+  },
+  "AST-mean+LR": {
+    "loso_acc": 0.625,
+    "loso_macro_f1": 0.578
+  },
+  "AST-logits+LR": {
+    "loso_acc": 0.5386,
+    "loso_macro_f1": 0.5031
+  },
+  "AST-logits+RF": {
+    "loso_acc": 0.5477,
+    "loso_macro_f1": 0.4608
+  },
+  "MFCC+AST-CLS+LR": {
+    "loso_acc": 0.5636,
+    "loso_macro_f1": 0.5208
+  },
+  "MFCC+AST-logits+LR": {
+    "loso_acc": 0.5477,
+    "loso_macro_f1": 0.5166
+  },
+  "蒸馏 student（MFCC+RF）": {
+    "loso_acc": 0.6205,
+    "loso_macro_f1": 0.5508
+  },
+  "_significance": {
+    "AST-mean+LR vs MFCC+RF（线上基线）": {
+      "diff_ci95": [
+        -0.0227,
+        0.0773
+      ],
+      "p_boot_gt0": 0.8442
+    },
+    "蒸馏 student（MFCC+RF） vs MFCC+RF（线上基线）": {
+      "diff_ci95": [
+        -0.0227,
+        0.0682
+      ],
+      "p_boot_gt0": 0.8278
+    },
+    "蒸馏 student（MFCC+RF） vs AST-mean+LR": {
+      "diff_ci95": [
+        -0.0614,
+        0.0523
+      ],
+      "p_boot_gt0": 0.4284
+    }
+  },
+  "_majority_baseline": 0.5023
+}

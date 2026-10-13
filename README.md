@@ -65,7 +65,29 @@
 | 采样率从 22.05k 降到 8k（对齐数据集原生采样率） | 降分（8k LOSO 53.6% vs 22.05k 56.8%）——假设被证伪 |
 | 把随机森林从 400 棵换到 150 棵 + 深度上限 10 | **精度不变，模型体积降到 1/3** ✅ |
 
-结论：继续堆手工特征不会带来质变。真正的跃升来自**预训练音频表征**——Ghani 等 (2023) 显示在小样本动物叫声上，冻结的 Perch embedding + 逻辑回归能达到 0.74–0.92，而同数据集的 MFCC+MLP 基线近乎随机；AVES 在 10 只狗的个体分类上也远超 SVM。路线是：离线用 Perch/AVES 提 embedding，蒸馏成一个能在浏览器里跑的小模型（几百 KB 级）。这是对本项目最有价值的下一步，欢迎 PR。
+结论：继续堆手工特征不会带来质变。我们把希望寄托在**预训练音频表征**上，并做了真实实验（见下节）——结论是数据量不变的前提下，通用预训练帮不上忙；蒸馏管线被验证可用，等数据众筹见效后值得用领域匹配的 embedding 重试。
+
+### 预训练表征实验（2026-10）
+
+用 `MIT/ast-finetuned-audioset-10-10-0.4593`（AudioSet 527 类预训练的 ViT，冻结）提 embedding，与线上管线同一协议（LOSO 按猫划分、21 折、线性重采样）。线上基线被复现（59.8%），说明协议对齐：
+
+| 配置 | LOSO 准确率 | macro-F1 | 与基线的差（配对 bootstrap 95% CI） |
+|---|---|---|---|
+| MFCC+RF（线上基线） | 59.8% | 0.526 | — |
+| AST CLS embedding + LR | 59.1% | 0.543 | 未单独检验 |
+| AST CLS embedding + RF | 60.2% | 0.499 | 未单独检验 |
+| **AST 平均 embedding + LR（最强 teacher）** | **62.5%** | **0.578** | [-2.3, +7.7]，P(更优)=0.84 |
+| AST logits + LR | 53.9% | 0.503 | 负向 |
+| MFCC + AST 拼接 + LR | 56.4% | 0.521 | 负向 |
+| **蒸馏 student（MFCC+RF，只学 teacher 软标签）** | **62.1%** | 0.551 | [-2.3, +6.8]，P=0.83 |
+
+三个诚实的结论：
+
+1. **通用预训练在这份数据上只值 +2~3 个点，且不显著**（CI 均跨 0）。Ghani 等 (2023) 报告 0.74–0.92 用的是 Perch——在鸟和家养动物叫声上预训练的**领域匹配**表征；AudioSet 是通用声音，猫叫只是其中一小片。差距主体在预训练域和数据量，不在方法本身。
+2. **蒸馏管线是通的**：student 完全不看真实标签、只学 teacher 软标签，拿到 62.1%，与 teacher（62.5%）无显著差异（P=0.43），方向上也超过看真实标签训练的自己（59.8%）。机制有效，缺的是一个更强的 teacher。
+3. **蒸馏不改变部署形态**：student 就是线上同款 MFCC+RF，浏览器里照样跑。数据众筹见效后，用领域匹配 embedding（Perch 类）做 teacher 重蒸，是这条路线的正确下一步。
+
+复现：`python3 scripts/ast_experiment.py`（首次需 AST 权重，之后读 `build/` 缓存；数值记录见 [`docs/ast_experiment.json`](docs/ast_experiment.json)）。
 
 ## 用起来顺手吗（交互）
 
@@ -178,6 +200,7 @@ docs/
   demo.gif                # 产品演示（README 顶部内嵌播放）
   share-card-example.png  # 分享卡片示例
 ```
+
 根目录另有 [CONTRIBUTING.md](CONTRIBUTING.md)（参与指南）与 `.github/ISSUE_TEMPLATE/data_contribution.yml`（数据贡献表单）。
 
 > 训练产物（`forest.json` / `features.js` / `metrics.json`）只有 `public/` 这一份来源；`scripts/train.py`、`export_js.py` 产出的新模型直接覆盖 `public/` 下的同名文件即可。
