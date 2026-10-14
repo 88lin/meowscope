@@ -156,6 +156,8 @@ const I18N = {
     'feat.jit': 'pitch jitter',
     'feat.dur': 'duration',
     'result.aria': 'Analysis result',
+    'meta.trimmed': (a,b)=>`${a}s (loudest slice of ${b}s)`,
+    'w.trimmed': (a,b)=>`Highlighted part is what was actually analyzed: ${a}s out of your ${b}s recording — the model only learned from 1–4s clips, so long recordings are trimmed to the loudest window.`,
     // data contribution
     'c.h2': 'Help it hear more cats',
     'c.h2s': 'DATA CONTRIBUTION',
@@ -340,6 +342,8 @@ const I18N = {
     'feat.jit': '音高抖动',
     'feat.dur': '时长',
     'result.aria': '分析结果',
+    'meta.trimmed': (a,b)=>`${a}s（取自 ${b}s 中最响的一段）`,
+    'w.trimmed': (a,b)=>`波形高亮处才是实际分析的部分：你录了 ${b}s，取其中最响的 ${a}s。模型只学过 1–4 秒的片段，整段统计出来的特征没有区分度。`,
     // 数据众筹
     'c.h2': '帮它听更多猫的叫声',
     'c.h2s': 'DATA CONTRIBUTION',

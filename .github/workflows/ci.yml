@@ -50,6 +50,8 @@ jobs:
         run: node scripts/ui_check.cjs
       - name: 数据众筹校验（假麦克风 + unzip 真解压）
         run: node scripts/contribute_check.cjs
+      - name: 端到端判定对拍（浏览器 vs Python）
+        run: node scripts/judgement_check.cjs
 
   # 闸门 4：main 分支上自动发布到 gh-pages
   deploy:

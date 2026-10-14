@@ -8,7 +8,8 @@
     "check:assets": "node scripts/check_assets.cjs",
     "check:ui": "node scripts/ui_check.cjs",
     "check:contrib": "node scripts/contribute_check.cjs",
-    "check": "npm run check:assets && npm run check:ui && npm run check:contrib"
+    "check": "npm run check:assets && npm run check:ui && npm run check:contrib && npm run check:judge",
+    "check:judge": "node scripts/judgement_check.cjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0"

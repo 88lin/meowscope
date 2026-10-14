@@ -296,6 +296,9 @@
   }
   .bar-row:first-child .bar-fill{background:var(--accent)}
   /* 梅尔频谱图：把「模型看到的输入」直接画出来 */
+  /* 长音频截取说明：高亮区之外是未参与分析的波形 */
+  .wave-note{font-size:.78rem;color:var(--muted);margin:10px 0 0;line-height:1.5}
+  .wave-note[hidden]{display:none}
   .mel-cap{font-size:.75rem;color:var(--muted);margin:18px 0 8px;letter-spacing:.06em}
   canvas#mel{width:100%;height:132px;display:block;border-radius:12px;background:var(--wave-bg)}
   /* 声学特征摘要：音高/抖动/时长，结论为什么这么来的 */
@@ -586,6 +589,7 @@
       <canvas id="wave" width="800" height="84" aria-hidden="true"></canvas>
       <div class="drop-hint" data-i18n="drop.hint"></div>
     </div>
+    <p class="wave-note" id="wave-note" hidden></p>
     <div class="controls">
       <button id="btn-record" data-i18n="btn.record"></button>
       <button id="btn-stop" class="ghost" disabled data-i18n="btn.stop"></button>
@@ -891,6 +895,7 @@ const barsEl = document.getElementById('bars');
 // 最近一次分析的结果，供分享卡片使用（仅存内存，不落盘）
 let lastWave = null, lastPreds = null, lastDur = 0, lastUnsure = false;
 let lastF0 = null, lastMelData = null;   // {mel: Float64Array, nFrames, nMels}
+let lastTrim = null;                     // 长音频截取区间 {a,b,total}，短音频为 null
 
 /* ---------- metrics table ---------- */
 let metricsData = null;
@@ -939,7 +944,7 @@ function drawLive(){
   ctx2d.stroke();
   rafId=requestAnimationFrame(drawLive);
 }
-function drawStatic(buf, duration){
+function drawStatic(buf, duration, hl){
   cancelAnimationFrame(rafId);
   // min-max envelope（短音频时 block 可能为 0，需兜底）
   const W=canvas.width, block=Math.max(1, Math.floor(buf.length/W));
@@ -956,10 +961,73 @@ function drawStatic(buf, duration){
   const gain = peak>0 ? (canvas.height*0.86)/peak : 0;
   ctx2d.clearRect(0,0,W,canvas.height);
   ctx2d.fillStyle=cssVar('--accent','#d96a2b');
+  // hl = {a,b} 秒：被分析的区间。区间外压暗，让用户看见 AI 到底听了哪一段
+  let a=0,b=W;
+  if(hl && duration>0){
+    a=Math.max(0,Math.min(W-1,Math.round(hl.a/duration*W)));
+    b=Math.max(a+1,Math.min(W,Math.round(hl.b/duration*W)));
+  }
   for(let p=0;p<W;p++){
     const h=Math.max(2, env[p]*gain);
+    if(hl) ctx2d.globalAlpha = (p>=a && p<b) ? 1 : 0.26;
     ctx2d.fillRect(p,(canvas.height-h)/2,1,h);
   }
+  if(hl) ctx2d.globalAlpha = 1;
+}
+
+/* ---------- 长音频：只分析音量最高的一段 ----------
+   依据：训练数据 440 条全部落在 1.09–4.00s（中位 1.81s），模型从没见过更长
+   的输入；实测 10s 以上整段统计的特征已无区分度（预测恒定不变），而 3 分钟
+   音频会让主线程卡住 5.6 秒。所以超过 MAX_ANALYZE_SEC 时，自动定位能量最高
+   的窗口，只分析那一段——既回到训练分布内，也避免了长音频卡顿。 */
+const MAX_ANALYZE_SEC=4.0;
+function pickLoudest(data, sr){
+  const total=data.length/sr;
+  if(total<=MAX_ANALYZE_SEC) return null;
+  const blk=Math.max(1,Math.floor(0.05*sr));            // 50ms 一格
+  const nb=Math.floor(data.length/blk);
+  if(nb<2) return null;
+  const energy=new Float64Array(nb);
+  for(let b=0;b<nb;b++){
+    const s=b*blk, e=Math.min(data.length,s+blk);
+    let acc=0; for(let i=s;i<e;i++) acc+=data[i]*data[i];
+    energy[b]=acc;
+  }
+  // 平滑能量序列：每个块取 ±0.2s 邻域均值，避免单个尖峰把窗口带偏
+  const sm=Math.max(1,Math.round(0.2*sr/blk));
+  const smv=new Float64Array(nb);
+  let bestB=0, bestV=-1;
+  for(let b=0;b<nb;b++){
+    const lo=Math.max(0,b-sm), hi=Math.min(nb-1,b+sm);
+    let acc=0; for(let k=lo;k<=hi;k++) acc+=energy[k];
+    const v=acc/(hi-lo+1);
+    smv[b]=v;
+    if(v>bestV){ bestV=v; bestB=b; }
+  }
+  // 阈值取「噪声地板与峰值之间」的固定比例，自适应实际信噪比：
+  // 固定比例会被猫叫内部的音节起伏切断（实测只框到 1.0s），而地板是稳定的
+  const sorted=Float64Array.from(smv).sort();
+  const floor=sorted[Math.floor(nb*0.1)] || 0;
+  const thr=floor + (bestV-floor)*0.15;
+  let lo=bestB, hi=bestB;
+  while(lo>0 && smv[lo-1]>=thr) lo--;
+  while(hi<nb-1 && smv[hi+1]>=thr) hi++;
+  let start=lo*blk, end=Math.min(data.length,(hi+1)*blk);
+  // 夹紧到 [1.8s, 4.0s]：训练数据全部落在 1.09–4.00s、中位 1.81s。
+  // 下限取 1.8s 是因为实测——把窗口收得太紧（1.0s）会切掉猫叫的首尾，
+  // 置信度反而低于覆盖完整一声喵的 2s 窗口。
+  const minLen=Math.round(1.8*sr), maxLen=Math.round(MAX_ANALYZE_SEC*sr);
+  if(end-start<minLen){
+    const c=(start+end)>>1;
+    start=Math.max(0,c-(minLen>>1)); end=Math.min(data.length,start+minLen);
+    if(end-start<minLen){ start=Math.max(0,end-minLen); end=Math.min(data.length,start+minLen); }
+  }
+  if(end-start>maxLen){
+    const c=(start+end)>>1;
+    start=Math.max(0,c-(maxLen>>1)); end=Math.min(data.length,start+maxLen);
+    if(end-start>maxLen){ start=Math.max(0,end-maxLen); }
+  }
+  return {start, end, a:start/sr, b:end/sr, total};
 }
 
 /* ---------- 梅尔频谱图 ----------
@@ -1126,8 +1194,16 @@ function showResult(preds, durSec, f0, melData){
   // 元信息：时长 + 时间 + 用的哪个模型
   const now=new Date();
   const hhmm=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const durTxt = lastTrim
+    ? t('meta.trimmed', (durSec||0).toFixed(1), lastTrim.total.toFixed(0))
+    : `${(durSec||0).toFixed(1)}s`;
   document.getElementById('v-meta').textContent =
-    `${hhmm} · ${(durSec||0).toFixed(1)}s · ${(usePersonal&&personalModel)?t('tag.personal'):t('p.mode.universal')}`;
+    `${hhmm} · ${durTxt} · ${(usePersonal&&personalModel)?t('tag.personal'):t('p.mode.universal')}`;
+  const wn=document.getElementById('wave-note');
+  if(wn){
+    if(lastTrim){ wn.textContent=t('w.trimmed', lastTrim.a.toFixed(1), lastTrim.total.toFixed(1)); wn.hidden=false; }
+    else { wn.hidden=true; wn.textContent=''; }
+  }
 
   const shareBtn=document.getElementById('btn-share');
   const saveBtn=document.getElementById('btn-save');
@@ -1174,6 +1250,11 @@ function showResult(preds, durSec, f0, melData){
   stateEl.textContent=`${t('st.done')} · ${durSec.toFixed(1)}s`;
 }
 
+function clearTrim(){
+  lastTrim=null;
+  const wn=document.getElementById('wave-note');
+  if(wn){ wn.hidden=true; wn.textContent=''; }
+}
 let busy=false;   // 防止连点导致两次分析交叉写入结果
 async function analyze(blob, label){
   if(busy){ toast(t('st.busy')); return; }
@@ -1182,11 +1263,17 @@ async function analyze(blob, label){
     stateEl.textContent=t('st.analyzing');
     resultEl.style.display='none';
     const data=await decodeToBuffer(blob);
-    if(data.length<22050*0.3){ stateEl.textContent=t('err.too_short'); drawIdle(); drawMelClear(); setFeat(null,null); showMelUI(false); return; }
+    if(data.length<22050*0.3){ stateEl.textContent=t('err.too_short'); drawIdle(); drawMelClear(); setFeat(null,null); showMelUI(false); clearTrim(); return; }
     // energy gate: near-silence
-    let e=0; for(let i=0;i<data.length;i++) e+=data[i]*data[i];
-    const rms=Math.sqrt(e/data.length);
-    drawStatic(data, data.length/22050);
+    // 先定位分析窗口，再做静音判断——静音必须看「被分析的那一段」而不是整段，
+    // 否则「安静房间里录 14 秒、其中 2 秒是猫叫」会被长静音把整段 rms 稀释到阈值以下，
+    // 直接判成没声音，连分析的机会都没有。
+    lastTrim=pickLoudest(data, 22050);
+    const seg = lastTrim ? data.subarray(lastTrim.start, lastTrim.end) : data;
+    drawStatic(data, data.length/22050, lastTrim?{a:lastTrim.a,b:lastTrim.b}:null);
+    // energy gate: near-silence（按分析窗口算）
+    let e=0; for(let i=0;i<seg.length;i++) e+=seg[i]*seg[i];
+    const rms=Math.sqrt(e/seg.length);
     if (rms < 0.003) {
       resultEl.style.display='block';
       const emptyEl=document.getElementById('result-empty');
@@ -1208,28 +1295,33 @@ async function analyze(blob, label){
       barsEl.innerHTML='';
       lastWave=null; lastPreds=null; lastUnsure=false;
       lastF0=null; lastMelData=null;
-      drawMelClear(); setFeat(null,null); showMelUI(false);
+      drawMelClear(); setFeat(null,null); showMelUI(false); clearTrim();
       stateEl.textContent=t('st.no_sound');
       return;
     }
     const t0=performance.now();
-    const {feat, f0, mel, nFrames, nMels} = extractAll(data);
+    const {feat, f0, mel, nFrames, nMels} = extractAll(seg);
     if(!(usePersonal && personalModel)) await loadForest();
-    const preds = (usePersonal && personalModel) ? predictPersonal(feat) : predict(feat);
-    lastWave = data; lastPreds = preds; lastDur = data.length/22050;
+    // 森林是用 95 维训练的：89 维谱特征 + 6 维 YIN 音高。extractAll 把音高单独
+    // 返回（结果区要显示音高中位数/抖动），喂进森林前必须拼回去——漏掉的话，
+    // 485 个用到音高的决策节点会拿到 undefined，比较恒为 false 而全走右分支。
+    const feat95 = feat.concat(f0);
+    const preds = (usePersonal && personalModel) ? predictPersonal(feat95) : predict(feat95);
+    const segDur = seg.length/22050;
+    lastWave = data; lastPreds = preds; lastDur = segDur;
     lastF0 = f0;
     lastMelData = (mel && nFrames) ? {mel, nFrames, nMels} : null;
     if(usePersonal && personalModel){
       document.getElementById('v-mode').textContent=t('tag.personal');
       document.getElementById('v-mode').style.display='';
     } else document.getElementById('v-mode').style.display='none';
-    console.log('inference', (performance.now()-t0).toFixed(0)+'ms');
-    showResult(preds, data.length/22050, f0, lastMelData);
-    pushHistory(preds, data.length/22050, data, f0, lastMelData);
+    console.log('inference', (performance.now()-t0).toFixed(0)+'ms'+(lastTrim?` (trimmed ${lastTrim.total.toFixed(1)}s→${segDur.toFixed(1)}s)`:''));
+    showResult(preds, segDur, f0, lastMelData);
+    pushHistory(preds, segDur, data, f0, lastMelData, lastTrim);
   }catch(e){
     console.error(e);
     stateEl.textContent=t('err.decode');
-    drawIdle(); drawMelClear(); setFeat(null,null); showMelUI(false);
+    drawIdle(); drawMelClear(); setFeat(null,null); showMelUI(false); clearTrim();
   }finally{
     busy=false;
   }
@@ -1237,11 +1329,12 @@ async function analyze(blob, label){
 
 /* ---------- 最近几次结果（只存内存，不落盘、不上传） ---------- */
 const history=[];   // {preds, dur, unsure, personal, time, wave, f0, mel}
-function pushHistory(preds, durSec, wave, f0, melData){
+function pushHistory(preds, durSec, wave, f0, melData, trim){
   history.unshift({preds, dur:durSec, unsure:lastUnsure,
     personal:!!(usePersonal&&personalModel), time:new Date(),
     wave: wave ? wave.slice(0) : null,
     f0: f0 || null,
+    trim: trim ? {a:trim.a, b:trim.b, total:trim.total} : null,
     mel: melData ? {mel: melData.mel.slice(0), nFrames: melData.nFrames, nMels: melData.nMels} : null});
   while(history.length>5) history.pop();
   renderHistory();
@@ -1267,9 +1360,9 @@ function renderHistory(){
       const h=history[+b.dataset.i];
       if(!h) return;
       lastPreds=h.preds; lastUnsure=h.unsure; lastDur=h.dur;
-      lastF0=h.f0; lastMelData=h.mel;
+      lastF0=h.f0; lastMelData=h.mel; lastTrim=h.trim;
       lastWave = h.wave ? Float32Array.from(h.wave) : null;
-      if(lastWave) drawStatic(lastWave, h.dur);
+      if(lastWave) drawStatic(lastWave, h.trim ? h.trim.total : h.dur, h.trim);
       showResult(h.preds, h.dur, h.f0, h.mel);
       resultEl.scrollIntoView({block:'nearest', behavior:'smooth'});
     };
@@ -1420,14 +1513,20 @@ document.querySelectorAll('.demo-btn').forEach(btn=>{
 /* ---------- personalization: teach it YOUR cat (local softmax head) ---------- */
 const LS_KEY='meowscope_personal_v1';
 const CLASS_KEYS=['brushing','waiting_for_food','isolation'];
-let pSamples=[];           // {label:int, feat:float[70]}
-let personalModel=null;    // {W:[3][70], b:[3], mu:[70], sd:[70], n:int}
+let pSamples=[];           // {label:int, feat:float[95]}
+let personalModel=null;    // {W:[3][95], b:[3], mu:[95], sd:[95], n:int}
 let usePersonal=false;
+const N_FEAT=95;           // 89 维谱特征 + 6 维 YIN 音高；训练与推理必须一致
 
 function lsLoad(){
   try{
     const s=JSON.parse(localStorage.getItem(LS_KEY)||'null');
-    if(s){ pSamples=s.samples||[]; personalModel=s.model||null; }
+    if(s){
+      pSamples=(s.samples||[]).filter(x=>x && Array.isArray(x.feat) && x.feat.length===N_FEAT);
+      const pm=s.model||null;
+      // 维度对不上（旧版存档）就丢掉，别让 89 维的模型静默接收 95 维特征
+      personalModel=(pm && pm.mu && pm.mu.length===N_FEAT) ? pm : null;
+    }
   }catch(e){}
 }
 function lsSave(){
@@ -1912,7 +2011,7 @@ document.getElementById('lang-btn').onclick=()=>{
 
 /* ---------- PWA: register service worker for offline install ---------- */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('./sw.js?v=11').catch(()=>{});
+  navigator.serviceWorker.register('./sw.js?v=12').catch(()=>{});
 }
 
 // test hooks (used by automated e2e; harmless in production)
@@ -1926,6 +2025,7 @@ window.__ms={decodeToBuffer, extractAll, predict, predictPersonal:()=>predictPer
   get unsure(){return lastUnsure;}, set unsure(v){lastUnsure=v;},
   get melData(){return lastMelData;}, set melData(v){lastMelData=v;},
   get f0(){return lastF0;},
+  get lastTrim(){return lastTrim;}, pickLoudest,
   cRender, cSamples:()=>cSamples, zipStore,
   get cPlaying(){return !!cPlaying;},
   predictPersonalFeat:(ft)=>predictPersonal(ft)};
